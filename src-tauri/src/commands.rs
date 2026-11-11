@@ -72,7 +72,8 @@ pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Setti
     if let Some(url) = settings.history.upload_target() {
         hyperrust_core::update::validate_private_url(url, &hyperrust_core::tr!("history", "historii")).map_err(|e| e.to_string())?;
     }
-    let settings = settings.normalized();
+    let mut settings = settings.normalized();
+    settings.rename_builtin_modes(state.settings().ui_language);
     store::save(&settings)?;
     hyperrust_core::i18n::set(settings.ui_language);
     let previous = std::mem::replace(&mut *state.settings.write().expect("settings lock"), settings.clone());
@@ -90,7 +91,8 @@ pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Setti
     if previous.updates != settings.updates {
         state.update.request_check();
     }
-    if balances::needs_fetch(&previous, &settings) {
+    // The tray's balance lines are worded in the UI language.
+    if balances::needs_fetch(&previous, &settings) || previous.ui_language != settings.ui_language {
         balances::refresh(&app, true);
     }
     tray::refresh(&app);
@@ -324,7 +326,7 @@ pub fn open_link(link: &str) -> Result<(), String> {
     let url = match link {
         "repo" => "https://github.com/jarx-dev/HyperRust",
         "coffee" => "https://buymeacoffee.com/jarx",
-        _ => return Err(format!("unknown link {link:?}")),
+        _ => return Err(tr!("unknown link \"{link}\"", "nieznany link „{link}”")),
     };
     let opener = if cfg!(windows) { "explorer" } else { "xdg-open" };
     std::process::Command::new(opener).arg(url).spawn().map(|_| ()).map_err(|e| e.to_string())

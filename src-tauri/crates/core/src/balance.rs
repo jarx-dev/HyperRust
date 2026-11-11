@@ -198,9 +198,9 @@ pub fn elevenlabs_pair_line(main: &ElevenLabsBalance, backup: &ElevenLabsBalance
 pub fn openrouter_line(b: &OpenRouterBalance) -> String {
     let Some(available) = b.available else {
         let spent = dollars(b.usage_weekly);
-        return crate::tr!("OpenRouter: {spent} $ spent in 7 days", "OpenRouter: wydano {spent} $ w 7 dni");
+        return crate::tr!("OpenRouter: {spent} spent in 7 days", "OpenRouter: wydano {spent} w 7 dni");
     };
-    let mut line = format!("OpenRouter: {} $", dollars(available));
+    let mut line = format!("OpenRouter: {}", dollars(available));
     if let Some(days) = b.days_left.filter(|&d| d < 1000.0) {
         line.push_str(&match days as u64 {
             0 => crate::tr!(" (<1 day)", " (<1 dzień)"),
@@ -253,12 +253,12 @@ fn wait(seconds: u64) -> String {
     }
 }
 
+/// "0,70 $" in Polish, "$0.70" in English, like the settings window.
 fn dollars(amount: f64) -> String {
-    let text = format!("{amount:.2}");
     if crate::i18n::is_polish() {
-        text.replace('.', ",")
+        format!("{amount:.2} $").replace('.', ",")
     } else {
-        text
+        format!("${amount:.2}")
     }
 }
 
@@ -382,7 +382,10 @@ mod tests {
         assert_eq!(openrouter_line(&b), "OpenRouter: wydano 0,70 $ w 7 dni");
 
         crate::i18n::set(crate::i18n::UiLanguage::En);
-        assert_eq!(openrouter_line(&b), "OpenRouter: 0.70 $ spent in 7 days");
+        assert_eq!(openrouter_line(&b), "OpenRouter: $0.70 spent in 7 days");
+        let credits = json!({"data": {"total_credits": 10.0, "total_usage": 6.79}});
+        let b = OpenRouterBalance::from_responses(&key, Some(&credits)).unwrap();
+        assert_eq!(openrouter_line(&b), "OpenRouter: $3.21 (≈32 days)");
         let v = json!({"character_count": 3600, "character_limit": 10000, "next_character_count_reset_unix": reset});
         let b = ElevenLabsBalance::from_subscription(&v, NOW).unwrap();
         assert_eq!(elevenlabs_line(&b, 80.0, NOW), "ElevenLabs: 64%, ≈1 h 20 min, renews in 18 days");

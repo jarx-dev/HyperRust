@@ -374,9 +374,15 @@ impl Settings {
     /// Parse persisted JSON; unknown or missing fields fall back to defaults and
     /// the result is normalized, so a damaged file never blocks start-up.
     pub fn from_json(json: &str) -> Self {
-        serde_json::from_str::<Settings>(json)
-            .unwrap_or_default()
-            .normalized()
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else {
+            return Settings::default().normalized();
+        };
+        let mut s = Settings::deserialize(&v).unwrap_or_default();
+        // A file without modes gets the built-in ones named in its UI language.
+        if v.get("modes").is_none() {
+            s.modes = default_modes(s.ui_language);
+        }
+        s.normalized()
     }
 
     pub fn to_json(&self) -> String {
@@ -389,16 +395,6 @@ impl Settings {
         self.modes.retain(|m| !m.id.trim().is_empty() && seen.insert(m.id.clone()));
         if self.modes.is_empty() {
             self.modes = default_modes(self.ui_language);
-        }
-        // Built-in modes still named as installed follow the UI language.
-        let other = match self.ui_language {
-            UiLanguage::En => UiLanguage::Pl,
-            UiLanguage::Pl => UiLanguage::En,
-        };
-        for m in &mut self.modes {
-            if default_mode_name(&m.id, other) == Some(m.name.as_str()) {
-                m.name = default_mode_name(&m.id, self.ui_language).unwrap_or_default().into();
-            }
         }
         // Make the preset implied by older settings explicit.
         for m in &mut self.modes {
@@ -413,6 +409,21 @@ impl Settings {
         self.updates.interval_s = self.updates.interval_s.clamp(15, 86_400);
         self.stt.dictionary = crate::dictionary::normalized(std::mem::take(&mut self.stt.dictionary));
         self
+    }
+
+    /// The UI language changed from `previous`: built-in modes still named as
+    /// installed in `previous` get their name in the new language; renamed ones keep theirs.
+    pub fn rename_builtin_modes(&mut self, previous: UiLanguage) {
+        if previous == self.ui_language {
+            return;
+        }
+        for m in &mut self.modes {
+            if let (Some(old), Some(new)) = (default_mode_name(&m.id, previous), default_mode_name(&m.id, self.ui_language)) {
+                if m.name == old {
+                    m.name = new.into();
+                }
+            }
+        }
     }
 
     pub fn active_mode(&self) -> &Mode {
@@ -539,15 +550,23 @@ mod tests {
     }
 
     #[test]
-    fn built_in_mode_names_follow_the_language_unless_renamed() {
+    fn built_in_mode_names_follow_only_a_language_change() {
         let mut s = Settings::default();
         s.modes[1].name = "Mine".into();
         s.ui_language = UiLanguage::Pl;
-        let s = s.normalized();
+        s.rename_builtin_modes(UiLanguage::En);
         assert_eq!(s.modes[0].name, "Prompt dla agenta");
         assert_eq!(s.modes[1].name, "Mine");
-        let back = Settings { ui_language: UiLanguage::En, ..s }.normalized();
-        assert_eq!(back.modes[0].name, "Agent prompt");
+        s.ui_language = UiLanguage::En;
+        s.rename_builtin_modes(UiLanguage::Pl);
+        assert_eq!(s.modes[0].name, "Agent prompt");
+
+        // A Polish UI user who named the mode in English keeps that name on load and on save.
+        let mut s = Settings { ui_language: UiLanguage::Pl, modes: default_modes(UiLanguage::En), ..Settings::default() };
+        s = Settings::from_json(&s.to_json());
+        assert_eq!(s.modes[0].name, "Agent prompt");
+        s.rename_builtin_modes(UiLanguage::Pl);
+        assert_eq!(s.modes[0].name, "Agent prompt");
     }
 
     #[test]

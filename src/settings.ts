@@ -807,7 +807,7 @@ function modeModelRow(mode: Mode): HTMLElement {
   const refresh = () => {
     const backend = $<HTMLSelectElement>("llm_backend").value as LlmBackend;
     sub.textContent = t("forBackend", { backend: LLM_LABELS[backend] });
-    const fallback = t("defaultModel", { model: defaultModel() || t("cliModel") });
+    const fallback = t("defaultModel", { model: defaultModel() || t("cliModelFallback") });
     const http = modelBackend();
     if (!http) {
       custom.hidden = true;
@@ -1070,6 +1070,8 @@ function renderSecrets(): void {
       input.type = "password";
       input.autocomplete = "off";
       input.placeholder = t(present ? "secretChange" : "secretPaste");
+      // A redraw (language switch) keeps a key typed but not saved yet.
+      input.value = document.querySelector<HTMLInputElement>(`#secret-${key}`)?.value ?? "";
       const save = button(t("save"));
       const store = async () => {
         if (!input.value.trim()) return;
@@ -1859,8 +1861,8 @@ $<HTMLButtonElement>("save").addEventListener("click", async () => {
     renderTiles();
     markSaved();
     status("save-status", t("saved"));
-    // The update status is worded by the app: check again to have it in the new language.
-    if (settings.ui_language !== languageBefore) showUpdate(await invoke<UpdateStatus>("check_updates"));
+    // The app words the update status when it is read: read it again in the new language.
+    if (settings.ui_language !== languageBefore) showUpdate((await invoke<Snapshot>("get_snapshot")).update);
     if (currentPage === "history") renderHistory();
     if (overviewInputs(settings) !== before) void loadOverview();
   } catch (e) {

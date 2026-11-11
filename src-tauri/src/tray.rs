@@ -174,6 +174,10 @@ fn show_window(app: &AppHandle, page: Option<&str>) {
     let url = page.map_or_else(|| "index.html".to_string(), |p| format!("index.html#{p}"));
     let result = WebviewWindowBuilder::new(app, SETTINGS_LABEL, WebviewUrl::App(url.into()))
         .title(tr!("HyperRust — settings", "HyperRust — ustawienia"))
+        // The page renames itself when the language is switched.
+        .on_document_title_changed(|w, title| {
+            let _ = w.set_title(&title);
+        })
         .inner_size(1000.0, 760.0)
         .min_inner_size(760.0, 540.0)
         .center()

@@ -243,13 +243,13 @@ async fn start(app: &AppHandle, pressed: Instant) -> Result<Recording, String> {
             let switched_to = (outcome.key_index > 0).then(|| {
                 let used = stt_secrets[outcome.key_index];
                 *PREFERRED_STT_KEY.lock().expect("preferred STT key") = Some(used);
-                let which = if used == SecretKey::ElevenLabsBackup {
+                let backup = used == SecretKey::ElevenLabsBackup;
+                tracing::warn!("{}: przełączono na {}", provider.label(), if backup { "klucz zapasowy" } else { "klucz główny" });
+                if backup {
                     tr!("backup key", "klucz zapasowy")
                 } else {
                     tr!("main key", "klucz główny")
-                };
-                tracing::warn!("{}: przełączono na {which}", provider.label());
-                which
+                }
             });
             let stt_model = if outcome.streamed { settings.stt.realtime_model() } else { settings.stt.batch_model() };
             let stt_model = stt_model.to_string();

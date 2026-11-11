@@ -42,25 +42,31 @@ pub struct UpdateStatus {
     pub checked_at: Option<u64>,
 }
 
+/// Words the status message when it is read, so it follows a UI language switch.
+type Message = Box<dyn Fn() -> String + Send + Sync>;
+
 #[derive(Default)]
 pub struct UpdateHandle {
-    status: Mutex<UpdateStatus>,
+    status: Mutex<(UpdateStatus, Option<Message>)>,
     check_now: Notify,
 }
 
 impl UpdateHandle {
     pub fn status(&self) -> UpdateStatus {
-        self.status.lock().expect("update lock").clone()
+        let guard = self.status.lock().expect("update lock");
+        let (status, message) = &*guard;
+        UpdateStatus { message: message.as_ref().map(|m| m()).unwrap_or_default(), ..status.clone() }
     }
 
     pub fn request_check(&self) {
         self.check_now.notify_one();
     }
 
-    fn set(&self, state: &str, message: impl Into<String>, latest: Option<&Manifest>) {
-        let mut s = self.status.lock().expect("update lock");
+    fn set(&self, state: &str, message: impl Fn() -> String + Send + Sync + 'static, latest: Option<&Manifest>) {
+        let mut guard = self.status.lock().expect("update lock");
+        let (s, text) = &mut *guard;
         s.state = state.into();
-        s.message = message.into();
+        *text = Some(Box::new(message));
         if let Some(m) = latest {
             s.latest_build = Some(m.build.clone());
         }
@@ -94,13 +100,13 @@ fn failed_path(exe: &Path) -> PathBuf {
 pub async fn run(app: AppHandle) {
     let state = app.state::<AppState>();
     if env!("HYPERRUST_SELF_UPDATE").is_empty() {
-        state.update.set("wyłączone", hyperrust_core::tr!("This build was made locally and does not update itself", "Ten build zbudowano lokalnie i nie aktualizuje się sam"), None);
+        state.update.set("wyłączone", move || hyperrust_core::tr!("This build was made locally and does not update itself", "Ten build zbudowano lokalnie i nie aktualizuje się sam"), None);
         return;
     }
     let client = match update::client() {
         Ok(c) => c,
         Err(e) => {
-            state.update.set("błąd", hyperrust_core::tr!("HTTP client: {e}", "Klient HTTP: {e}"), None);
+            state.update.set("błąd", move || hyperrust_core::tr!("HTTP client: {e}", "Klient HTTP: {e}"), None);
             return;
         }
     };
@@ -122,15 +128,15 @@ pub async fn run(app: AppHandle) {
                         Err(e) => {
                             state.end_install();
                             tracing::warn!("instalacja aktualizacji: {e}");
-                            state.update.set("błąd", hyperrust_core::tr!("Installation: {e}", "Instalacja: {e}"), None);
+                            state.update.set("błąd", move || hyperrust_core::tr!("Installation: {e}", "Instalacja: {e}"), None);
                         }
                     }
                 } else {
-                    state.update.set("wyłączone", hyperrust_core::tr!("Automatic updates are off", "Automatyczne aktualizacje są wyłączone"), None);
+                    state.update.set("wyłączone", move || hyperrust_core::tr!("Automatic updates are off", "Automatyczne aktualizacje są wyłączone"), None);
                 }
             }
         } else {
-            state.update.set("wyłączone", hyperrust_core::tr!("Automatic updates are off", "Automatyczne aktualizacje są wyłączone"), None);
+            state.update.set("wyłączone", move || hyperrust_core::tr!("Automatic updates are off", "Automatyczne aktualizacje są wyłączone"), None);
         }
         let interval = Duration::from_secs(settings.interval_s.max(15));
         tokio::select! {
@@ -147,38 +153,38 @@ async fn check_and_download(app: &AppHandle, client: &reqwest::Client) -> Option
     let url = match update::validate_url(&settings.url) {
         Ok(u) => u,
         Err(e) => {
-            state.update.set("błąd", e.to_string(), None);
+            state.update.set("błąd", move || e.to_string(), None);
             return None;
         }
     };
-    state.update.set("sprawdzanie", hyperrust_core::tr!("Checking…", "Sprawdzanie…"), None);
+    state.update.set("sprawdzanie", move || hyperrust_core::tr!("Checking…", "Sprawdzanie…"), None);
     let manifest = match update::fetch_manifest(client, &url).await {
         Ok(m) => m,
         Err(e) => {
             tracing::debug!("sprawdzanie aktualizacji: {e}");
-            state.update.set("błąd", hyperrust_core::tr!("Update server: {e}", "Serwer aktualizacji: {e}"), None);
+            state.update.set("błąd", move || hyperrust_core::tr!("Update server: {e}", "Serwer aktualizacji: {e}"), None);
             return None;
         }
     };
     if !manifest.is_newer_than(&BUILD) {
         let build = BUILD.build;
-        state.update.set("aktualna", hyperrust_core::tr!("Up to date ({build})", "Najnowsza wersja ({build})"), Some(&manifest));
+        state.update.set("aktualna", move || hyperrust_core::tr!("Up to date ({build})", "Najnowsza wersja ({build})"), Some(&manifest));
         return None;
     }
 
     let exe = match std::env::current_exe() {
         Ok(p) => p,
         Err(e) => {
-            state.update.set("błąd", hyperrust_core::tr!("Program path: {e}", "Ścieżka programu: {e}"), Some(&manifest));
+            state.update.set("błąd", move || hyperrust_core::tr!("Program path: {e}", "Ścieżka programu: {e}"), Some(&manifest));
             return None;
         }
     };
     let skipped = std::fs::read_to_string(skip_file(&exe)).unwrap_or_default();
-    let build = &manifest.build;
     if skipped.trim() == manifest.sha256 {
+        let build = manifest.build.clone();
         state.update.set(
             "błąd",
-            hyperrust_core::tr!(
+            move || hyperrust_core::tr!(
                 "Build {build} failed to start and was rolled back — publish a newer one",
                 "Build {build} nie uruchomił się i został wycofany — opublikuj nowszy"
             ),
@@ -189,7 +195,8 @@ async fn check_and_download(app: &AppHandle, client: &reqwest::Client) -> Option
     let staged = staged_path(&exe);
     let already = std::fs::read(&staged).ok().is_some_and(|b| update::verify(&b, &manifest).is_ok());
     if !already {
-        state.update.set("pobieranie", hyperrust_core::tr!("Downloading {build}…", "Pobieranie {build}…"), Some(&manifest));
+        let build = manifest.build.clone();
+        state.update.set("pobieranie", move || hyperrust_core::tr!("Downloading {build}…", "Pobieranie {build}…"), Some(&manifest));
         let bytes = match update::download_url(&url, &manifest) {
             Ok(dl) => update::download_verified(client, &dl, &manifest).await,
             Err(e) => Err(e),
@@ -197,18 +204,19 @@ async fn check_and_download(app: &AppHandle, client: &reqwest::Client) -> Option
         let bytes = match bytes {
             Ok(b) => b,
             Err(e) => {
-                state.update.set("błąd", hyperrust_core::tr!("Download: {e}", "Pobieranie: {e}"), Some(&manifest));
+                state.update.set("błąd", move || hyperrust_core::tr!("Download: {e}", "Pobieranie: {e}"), Some(&manifest));
                 return None;
             }
         };
         if let Err(e) = update::write_atomically(&staged, &bytes) {
-            let path = staged.display();
-            state.update.set("błąd", hyperrust_core::tr!("Writing {path}: {e}", "Zapis {path}: {e}"), Some(&manifest));
+            let path = staged.display().to_string();
+            state.update.set("błąd", move || hyperrust_core::tr!("Writing {path}: {e}", "Zapis {path}: {e}"), Some(&manifest));
             return None;
         }
     }
     tracing::info!("aktualizacja {} gotowa ({})", manifest.build, manifest.notes);
-    state.update.set("gotowa", hyperrust_core::tr!("Will install {build} after the dictation ends", "Zainstaluję {build} po zakończeniu dyktowania"), Some(&manifest));
+    let build = manifest.build.clone();
+    state.update.set("gotowa", move || hyperrust_core::tr!("Will install {build} after the dictation ends", "Zainstaluję {build} po zakończeniu dyktowania"), Some(&manifest));
     Some((staged, manifest))
 }
 
