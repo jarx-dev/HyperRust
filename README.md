@@ -63,6 +63,9 @@ hook klawiatury (WH_KEYBOARD_LL) → mikrofon (WASAPI, 16 kHz mono, 300 ms sprze
   z OpenAI (np. CLIProxy na subskrypcji), `claude -p` albo `codex exec`.
 - Słownik nazw, które rozpoznawanie przekręca (`Claude Code = Cloud Code`): podpowiada je
   ElevenLabs, trafia do promptu i poprawia wklejany tekst także bez AI.
+- Ranking modeli post-processingu odświeżany codziennie: każdy nowy model czatu z OpenRouter
+  dostaje te same polskie dyktowania, ślepy sędzia ocenia wynik, a tabela pokazuje ocenę, czas
+  i koszt. Model z rankingu wybierasz jednym kliknięciem.
 
 <p align="center"><img src="docs/screenshots/modes.png" alt="Strona Tryby: tryb aktywny, rodzaj trybu, model i prompt"></p>
 

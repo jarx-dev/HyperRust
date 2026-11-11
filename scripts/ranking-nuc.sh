@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Daily post-processing model ranking on the private server, run by
 # hyperrust-ranking.service from its own checkout (<data>/src, moved to the
-# tested ref by the unit before this starts): builds examples/ranking.rs and
-# publishes ranking.json next to the update manifest, where the app reads it.
+# tested ref by the unit before this starts): builds examples/ranking.rs,
+# publishes ranking.json next to the update manifest, where private builds read
+# it, and a copy without the judge's remarks as the asset of the GitHub release
+# `ranking` (a pre-release, so the updater's releases/latest never points at
+# it), where public builds read it. `gh` must be logged in.
 #
 # API keys: OpenRouter's from Bitwarden Secrets Manager (`bws`, token in
 # ~/.config/bws/token), CLIProxy's (the judge) from its config. They are never
@@ -11,6 +14,7 @@
 #   HYPERRUST_RANKING_BWS_PROJECT  BWS project holding the OpenRouter key
 #   CLIPROXY_BASE_URL              the judge's OpenAI-compatible endpoint
 #   CLIPROXY_CONFIG                CLIProxy's config.yaml (default ~/cliproxyapi/config.yaml)
+#   HYPERRUST_RANKING_REPO         GitHub repository of the public copy (default jarx-dev/HyperRust)
 # Env: HYPERRUST_RANKING_DIR (default ~/hyperrust-ranking),
 #      HYPERRUST_UPDATE_DIR (default ~/hyperrust-updates).
 set -euo pipefail
@@ -39,4 +43,11 @@ if [ -z "$OPENROUTER_API_KEY" ] || [ -z "$CLIPROXY_API_KEY" ]; then
 fi
 export OPENROUTER_API_KEY CLIPROXY_API_KEY
 
-exec "$CARGO_TARGET_DIR/debug/examples/ranking" --data "$data" --publish "$publish"
+"$CARGO_TARGET_DIR/debug/examples/ranking" --data "$data" --publish "$publish"
+
+# Public copy for releases from GitHub: the models' results only. The judge's
+# remarks quote the dictations, and part of the set is private.
+public=$(mktemp -d)
+trap 'rm -rf "$public"' EXIT
+jq '.models[].issues = []' "$publish" > "$public/ranking.json"
+gh release upload ranking "$public/ranking.json" --clobber -R "${HYPERRUST_RANKING_REPO:-jarx-dev/HyperRust}"

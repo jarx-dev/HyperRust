@@ -218,17 +218,15 @@ pub struct RankingView {
     age_days: u64,
 }
 
-/// The post-processing model ranking a private update server publishes next to
-/// the update manifest (see `hyperrust_core::ranking`); `None` without one.
+/// The post-processing model ranking: next to a private update manifest, or
+/// its public copy on GitHub (see `hyperrust_core::ranking`).
 #[tauri::command]
-pub async fn get_model_ranking(state: State<'_, AppState>) -> Result<Option<RankingView>, String> {
-    let Some(url) = ranking::url(&state.settings().updates.url).map_err(|e| e.to_string())? else {
-        return Ok(None);
-    };
+pub async fn get_model_ranking(state: State<'_, AppState>) -> Result<RankingView, String> {
+    let url = ranking::url(&state.settings().updates.url).map_err(|e| e.to_string())?;
     let client = update::client().map_err(|e| e.to_string())?;
     let ranking = ranking::fetch(&client, &url).await.map_err(|e| e.to_string())?;
     let age_days = (crate::history::now_ms() / 1000).saturating_sub(ranking.generated_at) / 86_400;
-    Ok(Some(RankingView { ranking, app_prompt_sha: prompt_sha(AGENT_PROMPT), age_days }))
+    Ok(RankingView { ranking, app_prompt_sha: prompt_sha(AGENT_PROMPT), age_days })
 }
 
 /// The dictation history kept on this computer, newest first.

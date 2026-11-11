@@ -1,7 +1,8 @@
 # Własny serwer: aktualizacje, historia i ranking
 
 Wszystko tutaj jest opcjonalne. Wydania z GitHuba działają bez serwera: aktualizują się z GitHub
-Releases, historię dyktowań trzymają tylko na komputerze i nie pokazują rankingu modeli.
+Releases, historię dyktowań trzymają tylko na komputerze, a ranking modeli pobierają z jego publicznej
+kopii na GitHubie (wydanie `ranking`).
 
 Własny serwer to dowolna maszyna z Linuksem w twojej sieci Tailscale. Jej adresy nigdy nie trafiają
 do repozytorium: skrypty czytają je z `~/.config/hyperrust/build.env` (zmienne powłoki, inny plik
@@ -45,7 +46,7 @@ Na serwerze:
 
 ## Ranking modeli post-processingu
 
-W buildzie z własnym serwerem aktualizacji strona „Post-processing” pokazuje ranking modeli, który ten serwer liczy codziennie (wydania z GitHuba tej tabeli nie mają). Aplikacja tylko go pobiera: `ranking.json` leży obok `latest.json` na serwerze aktualizacji, pod adresem z ustawień aktualizacji. Zewnętrzne rankingi (np. Artificial Analysis) mierzą ogólną inteligencję i średnią szybkość wszystkich dostawców, a nie redakcję polskiego dyktowania przez szybką trasę OpenRouter, więc serwer mierzy to sam.
+Strona „Post-processing” pokazuje ranking modeli, który serwer liczy codziennie. Aplikacja tylko go pobiera: build z własnym serwerem bierze `ranking.json` obok `latest.json`, pod adresem z ustawień aktualizacji, a wydanie z GitHuba publiczną kopię z wydania `ranking` na GitHubie. Po każdym przebiegu `scripts/ranking-nuc.sh` wysyła ją tam przez `gh` (`gh` musi być zalogowane); kopia ma same wyniki modeli, bez uwag sędziego, bo te cytują dyktowania, a część zestawu jest prywatna. Wydanie `ranking` jest oznaczone jako pre-release, więc adres aktualizacji `releases/latest` nigdy na nie nie wskazuje. Zewnętrzne rankingi (np. Artificial Analysis) mierzą ogólną inteligencję i średnią szybkość wszystkich dostawców, a nie redakcję polskiego dyktowania przez szybką trasę OpenRouter, więc serwer mierzy to sam.
 
 - **Zestaw i zapytanie.** Każdy model dostaje te same 24 dyktowania: 14 z `tests/fixtures/dictations.txt` i 10 prawdziwych z historii dyktowań (`~/hyperrust-ranking/set/hist.jsonl` na serwerze, poza repo). Zapytanie jest takie jak w aplikacji: wbudowany prompt agenta, OpenRouter z dopiskiem `:nitro` i reasoning effort `none`. Modele, które nie pozwalają wyłączyć myślenia (HTTP 400 „Reasoning is mandatory”), dostają `low`.
 - **Ocena i czas.** Ślepy sędzia (Opus 5.5 przez CLIProxy, w abonamencie) daje każdemu wynikowi 0–10 za wierność, oczyszczenie, polszczyznę i terminy, nie wiedząc, który model go napisał. Obok nowych modeli widzi zapisane wyniki 3 najlepszych, więc skala zostaje ta sama między przebiegami. Nieudane zapytanie liczy się jako 0. Czas to mediana od wysłania zapytania do pełnej odpowiedzi; koszt to mediana kwoty, którą policzył OpenRouter.
