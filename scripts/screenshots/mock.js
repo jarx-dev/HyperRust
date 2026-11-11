@@ -219,7 +219,7 @@
     }),
     get_overview: () => ({
       elevenlabs: { state: "ok", data: {
-        tier: "creator", used: 38_400, limit: 100_000, remaining: 61_600, reset_unix: sec(now + 18 * day),
+        tier: "creator", used: 38_400, limit: 100_000, remaining: 61_600, reset_unix: sec(now + 18 * day - 60 * min), // off the whole-day boundary, so every shot says 18
         credits_per_min_realtime: 78.5, credits_per_min_batch: 68, per_day: 2100, runs_out_unix: null } },
       elevenlabs_backup: { state: "no_key" },
       openrouter: { state: "ok", data: {
@@ -257,7 +257,7 @@
       batch: [{ id: "scribe_v2", name: "Scribe v2", owner: "elevenlabs", created: null, price: { unit: "hour", usd: 0.22 } }],
       realtime: [{ id: "scribe_v2_realtime", name: "Scribe v2 Realtime", owner: "elevenlabs", created: null, price: { unit: "hour", usd: 0.39 } }],
     }),
-    list_input_devices: () => ["Mikrofon (Realtek Audio)", "Zestaw słuchawkowy (USB Audio)"],
+    list_input_devices: () => EN ? ["Microphone (Realtek Audio)", "Headset (USB Audio)"] : ["Mikrofon (Realtek Audio)", "Zestaw słuchawkowy (USB Audio)"],
     check_updates: () => replies.get_snapshot().update,
   };
 

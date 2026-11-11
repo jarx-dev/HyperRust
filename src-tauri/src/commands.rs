@@ -88,7 +88,8 @@ pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Setti
     if previous.hotkey != settings.hotkey || previous.hotkey_mode != settings.hotkey_mode {
         let _ = state.ctl.send(CtlMsg::Reconfigure);
     }
-    if previous.updates != settings.updates {
+    // A fresh check words error details in the new language too.
+    if previous.updates != settings.updates || previous.ui_language != settings.ui_language {
         state.update.request_check();
     }
     // The tray's balance lines are worded in the UI language.

@@ -307,7 +307,7 @@ function formats() {
     usdCost: usd({ minimumSignificantDigits: 2, maximumSignificantDigits: 2 }),
     day: new Intl.DateTimeFormat(l, { day: "numeric", month: "short" }),
     weekday: new Intl.DateTimeFormat(l, { weekday: "long", day: "numeric", month: "long" }),
-    clock: new Intl.DateTimeFormat(l, { hour: "2-digit", minute: "2-digit" }),
+    clock: new Intl.DateTimeFormat(l, { hour: l === "pl-PL" ? "2-digit" : "numeric", minute: "2-digit" }),
   };
 }
 
@@ -1074,10 +1074,13 @@ function renderSecrets(): void {
       input.value = document.querySelector<HTMLInputElement>(`#secret-${key}`)?.value ?? "";
       const save = button(t("save"));
       const store = async () => {
-        if (!input.value.trim()) return;
+        const value = input.value;
+        if (!value.trim()) return;
         try {
-          await invoke("set_secret", { key, value: input.value });
-          input.value = "";
+          await invoke("set_secret", { key, value });
+          // The field may have been redrawn (language switch) while saving.
+          const field = document.querySelector<HTMLInputElement>(`#secret-${key}`);
+          if (field?.value === value) field.value = "";
           await reloadSecrets(key);
         } catch (e) {
           status("save-status", errorText(e), true);

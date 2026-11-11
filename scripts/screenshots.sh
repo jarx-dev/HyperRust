@@ -15,6 +15,7 @@ set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
 ui=${UI:-pl}
+[[ $ui == pl || $ui == en ]] || { echo "UI musi być pl albo en" >&2; exit 1; }
 out=$repo/docs/screenshots
 [[ $ui == pl ]] || out=$out/$ui
 cd "$repo"

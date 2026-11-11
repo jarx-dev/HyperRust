@@ -28,7 +28,7 @@
   <br><sub>All screenshots show demo data (made-up dictations and balances).</sub>
 </p>
 
-> The interface is in English or Polish: new installations start in English, and „Ogólne” (General) → Language / Język switches it. The screenshots show the English interface; the labels quoted below are the Polish ones, with the English label in parentheses on first use.
+> The interface is in English or Polish: new installations start in English, and General → Language / Język switches it.
 
 ---
 
@@ -60,8 +60,8 @@ keyboard hook (WH_KEYBOARD_LL) → microphone (WASAPI, 16 kHz mono, 300 ms from 
 <p align="center"><img src="docs/screenshots/en/overlay.png" width="420" alt="Recording indicator with a sound wave and the mode name"></p>
 
 **Modes and post-processing**
-- „Bez AI” (No AI) pastes the transcript as is, „Porządkowanie tekstu” (Text cleanup) fixes
-  punctuation and filler words, and „Prompt dla agenta” (Agent prompt) edits minimally: it removes
+- "No AI" pastes the transcript as is, "Text cleanup" fixes
+  punctuation and filler words, and "Agent prompt" edits minimally: it removes
   "um"s and self-corrections and fixes technical names ("git check out" → `git checkout`), but
   leaves your words and tone alone.
 - Each mode can have its own model and prompt. The backend can be OpenRouter, any
@@ -95,7 +95,7 @@ Measured from the moment the key is released, with 12 s of Polish speech:
 
 | Setup | Time |
 |---|---|
-| ElevenLabs live, „Bez AI” (No AI) mode | 0.21–0.30 s |
+| ElevenLabs live, "No AI" mode | 0.21–0.30 s |
 | ElevenLabs live + Gemini 3.1 Flash Lite via OpenRouter | 0.96–1.18 s |
 | ElevenLabs live + Haiku 5.5 via OpenRouter | 1.49–1.75 s |
 | Recognition and Haiku 5.5, both via OpenRouter (no streaming) | 2.23–2.49 s |
@@ -109,16 +109,16 @@ The ready-made EXE is on the [releases page](https://github.com/jarx-dev/HyperRu
 Download it to a writable folder, e.g. `%LOCALAPPDATA%\HyperRust\`, and run it; there is no
 installer (Windows 10 or 11, WebView2 is part of the system). The app downloads later releases
 itself when you are not dictating. The file is not signed, so the first time Windows may warn about
-an unknown publisher: „Więcej informacji” (More info) → „Uruchom mimo to” (Run anyway).
+an unknown publisher: "More info" → "Run anyway".
 
 First run:
 
-1. The settings open. On the „Klucze API” (API keys) page, enter your [ElevenLabs](https://elevenlabs.io)
+1. The settings open. On the "API keys" page, enter your [ElevenLabs](https://elevenlabs.io)
    key (speech recognition) and your [OpenRouter](https://openrouter.ai) key (post-processing).
    OpenRouter alone is enough too, but then recognition is batch (~1 s slower).
 2. Hold `Ctrl+Shift+Space` in any text field, say something and let go.
-3. Optionally turn on „Uruchamiaj z Windows” (Start with Windows), in the tray icon menu or on the
-   „Ogólne” (General) page.
+3. Optionally turn on "Start with Windows", in the tray icon menu or on the
+   "General" page.
 
 ## Privacy
 
@@ -127,7 +127,7 @@ First run:
 - The recording goes to the speech-recognition provider you chose, and the transcript goes to the
   post-processing backend you chose. Nothing else leaves your computer: dictation history stays in
   `%LOCALAPPDATA%\HyperRust\logs\history.jsonl`, and the application log contains no dictated text.
-- Settings: `%APPDATA%\HyperRust\settings.json`. You can turn history off on the „Ogólne” (General)
+- Settings: `%APPDATA%\HyperRust\settings.json`. You can turn history off on the "General"
   page.
 
 ## Building
@@ -177,7 +177,7 @@ scripts/                your own server (updates, history, ranking) and README s
 ## About the author
 
 HyperRust was written by **Jarosław Hartwich** ([github.com/jarx-dev](https://github.com/jarx-dev)).
-You can find the same in the app: the „Ogólne” (General) page → „O programie” (About).
+You can find the same in the app: the "General" page → "About".
 
 If you find HyperRust useful, you can [buy me a coffee](https://buymeacoffee.com/jarx) ☕
 

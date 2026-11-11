@@ -256,7 +256,7 @@ const en = {
   chartAria: "Recording minutes per day over 30 days, {min} min in total",
   hkAuto: "hold or double-tap",
   hkHold: "hold",
-  hkToggle: "press to start and to stop",
+  hkToggle: "press to start and stop",
   live: "live",
   batch: "batch",
   defaultModelShort: "default model",
