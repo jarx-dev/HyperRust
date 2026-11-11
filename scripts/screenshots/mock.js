@@ -215,7 +215,7 @@
       local_build: false,
       secrets: { eleven_labs: true, eleven_labs_backup: false, xai: false, open_ai: false, open_router: true, llm_endpoint: false },
       logs_dir: "C:\\Users\\Demo\\AppData\\Local\\HyperRust\\logs",
-      update: { state: "aktualna", message: EN ? "Up to date (demo-1762851600)" : "Masz najnowszą wersję", latest_build: "demo-1762851600", checked_at: sec(now - 2 * min) },
+      update: { state: "aktualna", message: EN ? "Up to date (demo-1762851600)" : "Najnowsza wersja (demo-1762851600)", latest_build: "demo-1762851600", checked_at: sec(now - 2 * min) },
     }),
     get_overview: () => ({
       elevenlabs: { state: "ok", data: {

@@ -1240,9 +1240,14 @@ function showUpdate(u: UpdateStatus): void {
   status("update-status", u.message || u.state, u.state === "błąd");
 }
 
+/** A started check finishes in the background: show its result a moment later. */
+function rereadUpdateSoon(): void {
+  window.setTimeout(async () => showUpdate((await invoke<Snapshot>("get_snapshot")).update), 3000);
+}
+
 $<HTMLButtonElement>("update-check").addEventListener("click", async () => {
   showUpdate(await invoke<UpdateStatus>("check_updates"));
-  window.setTimeout(async () => showUpdate((await invoke<Snapshot>("get_snapshot")).update), 3000);
+  rereadUpdateSoon();
 });
 
 $<HTMLButtonElement>("open-logs").addEventListener("click", () => void invoke("open_logs_dir"));
@@ -1864,8 +1869,11 @@ $<HTMLButtonElement>("save").addEventListener("click", async () => {
     renderTiles();
     markSaved();
     status("save-status", t("saved"));
-    // The app words the update status when it is read: read it again in the new language.
-    if (settings.ui_language !== languageBefore) showUpdate((await invoke<Snapshot>("get_snapshot")).update);
+    // A language change starts a fresh update check, worded in the new language.
+    if (settings.ui_language !== languageBefore) {
+      showUpdate((await invoke<Snapshot>("get_snapshot")).update);
+      rereadUpdateSoon();
+    }
     if (currentPage === "history") renderHistory();
     if (overviewInputs(settings) !== before) void loadOverview();
   } catch (e) {

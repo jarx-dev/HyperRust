@@ -147,10 +147,10 @@ pnpm build
 cd src-tauri && cargo xwin build --release --target x86_64-pc-windows-msvc --features tauri/custom-protocol
 ```
 
-A regular build does not update itself. GitHub releases are built by GitHub Actions (the „Wydanie”
+A regular build does not update itself. GitHub releases are built by GitHub Actions (the "Wydanie"
 (Release) workflow, run manually from `main`): the EXE, `latest.json` for updates, and a build
 provenance attestation for the file. Every PR goes through tests, clippy and a Windows build (the
-„build” workflow).
+"build" workflow).
 
 Your own server on a Tailscale network (updates after every change, collecting dictation history
 to tune the prompt, a daily ranking of post-processing models) is optional:
