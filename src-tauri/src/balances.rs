@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 use hyperrust_core::balance::{self, ElevenLabsBalance, OpenRouterBalance};
 use hyperrust_core::config::{SecretKey, Settings};
+use hyperrust_core::tr;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
@@ -102,7 +103,7 @@ pub async fn fetch(
         }
         (Fetched::Error { message }, _) => {
             tracing::warn!("saldo ElevenLabs: {message}");
-            lines.push((Source::ElevenLabs, "ElevenLabs: nie udało się sprawdzić salda".into()));
+            lines.push((Source::ElevenLabs, tr!("ElevenLabs: could not check the balance", "ElevenLabs: nie udało się sprawdzić salda")));
         }
         _ => {}
     }
@@ -113,7 +114,7 @@ pub async fn fetch(
         Fetched::Ok { data } => lines.push((Source::OpenRouter, balance::openrouter_line(data))),
         Fetched::Error { message } => {
             tracing::warn!("saldo OpenRouter: {message}");
-            lines.push((Source::OpenRouter, "OpenRouter: nie udało się sprawdzić salda".into()));
+            lines.push((Source::OpenRouter, tr!("OpenRouter: could not check the balance", "OpenRouter: nie udało się sprawdzić salda")));
         }
         Fetched::NoKey | Fetched::Unused => {}
     }

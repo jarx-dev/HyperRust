@@ -122,7 +122,7 @@ pub async fn run_live(
                 Some(LiveEvent::Started) => break,
                 Some(LiveEvent::Error(e)) => return Err(e),
                 Some(_) => {}
-                None => return Err(Error::Network("połączenie zamknięte przed startem sesji".into())),
+                None => return Err(Error::Network(crate::tr!("connection closed before the session started", "połączenie zamknięte przed startem sesji"))),
             }
         }
     }
@@ -149,7 +149,7 @@ pub async fn run_live(
             msg = ws.next() => match next_event(&mut *proto, msg)? {
                 Some(LiveEvent::Error(e)) => return Err(e),
                 Some(_) => {}
-                None => return Err(Error::Network("dostawca zamknął połączenie w trakcie nagrania".into())),
+                None => return Err(Error::Network(crate::tr!("the provider closed the connection during the recording", "dostawca zamknął połączenie w trakcie nagrania"))),
             },
         }
     }
@@ -171,7 +171,7 @@ pub async fn run_live(
                 Some(LiveEvent::Done) => break Ok(proto.transcript()),
                 Some(LiveEvent::Error(e)) => break Err(e),
                 Some(_) => {}
-                None => break Err(Error::Network("połączenie zamknięte przed końcowym transkryptem".into())),
+                None => break Err(Error::Network(crate::tr!("connection closed before the final transcript", "połączenie zamknięte przed końcowym transkryptem"))),
             },
         }
     };

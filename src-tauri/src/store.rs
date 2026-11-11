@@ -15,5 +15,8 @@ pub fn save(settings: &Settings) -> Result<(), String> {
     let path = paths::settings_file();
     std::fs::create_dir_all(paths::config_dir()).map_err(|e| e.to_string())?;
     hyperrust_core::update::write_atomically(&path, settings.to_json().as_bytes())
-        .map_err(|e| format!("zapis ustawień do {}: {e}", path.display()))
+        .map_err(|e| {
+            let path = path.display();
+            hyperrust_core::tr!("saving settings to {path}: {e}", "zapis ustawień do {path}: {e}")
+        })
 }

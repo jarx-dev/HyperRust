@@ -12,7 +12,7 @@ use hyperrust_core::ranking::{self, Ranking};
 use hyperrust_core::stt::SttProviderKind;
 use hyperrust_core::timing::TimingReport;
 use hyperrust_core::update::{self, BuildInfo};
-use hyperrust_core::Settings;
+use hyperrust_core::{tr, Settings};
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
@@ -29,8 +29,10 @@ pub struct Snapshot {
     /// own prompt is empty.
     builtin_prompts: HashMap<String, String>,
     build: BuildInfo,
-    /// [`crate::state::version_label`], e.g. `v26.1111.1215`.
+    /// [`crate::state::short_version`], e.g. `v26.1111.1215`.
     version: String,
+    /// [`crate::state::is_local_build`]; the window adds its own "local".
+    local_build: bool,
     /// Which keys are stored (never their values).
     secrets: HashMap<SecretKey, bool>,
     logs_dir: String,
@@ -52,7 +54,8 @@ pub fn get_snapshot(state: State<'_, AppState>) -> Snapshot {
         settings,
         builtin_prompts,
         build: BUILD,
-        version: crate::state::version_label(),
+        version: crate::state::short_version(),
+        local_build: crate::state::is_local_build(),
         secrets: SecretKey::ALL.iter().map(|&k| (k, state.secrets.is_set(k))).collect(),
         logs_dir: paths::logs_dir().display().to_string(),
         update: state.update.status(),
@@ -61,15 +64,17 @@ pub fn get_snapshot(state: State<'_, AppState>) -> Snapshot {
 
 #[tauri::command]
 pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Settings) -> Result<Settings, String> {
-    HotkeySpec::parse(&settings.hotkey).map_err(|e| format!("skrót „{}”: {e}", settings.hotkey))?;
+    let hotkey = &settings.hotkey;
+    HotkeySpec::parse(hotkey).map_err(|e| tr!("shortcut \"{hotkey}\": {e}", "skrót „{hotkey}”: {e}"))?;
     if settings.updates.enabled {
         hyperrust_core::update::validate_url(&settings.updates.url).map_err(|e| e.to_string())?;
     }
     if let Some(url) = settings.history.upload_target() {
-        hyperrust_core::update::validate_private_url(url, "historii").map_err(|e| e.to_string())?;
+        hyperrust_core::update::validate_private_url(url, &hyperrust_core::tr!("history", "historii")).map_err(|e| e.to_string())?;
     }
     let settings = settings.normalized();
     store::save(&settings)?;
+    hyperrust_core::i18n::set(settings.ui_language);
     let previous = std::mem::replace(&mut *state.settings.write().expect("settings lock"), settings.clone());
 
     // Ticking the box also re-enables an entry switched off in Task Manager.
@@ -319,7 +324,7 @@ pub fn open_link(link: &str) -> Result<(), String> {
     let url = match link {
         "repo" => "https://github.com/jarx-dev/HyperRust",
         "coffee" => "https://buymeacoffee.com/jarx",
-        _ => return Err(format!("nieznany link „{link}”")),
+        _ => return Err(format!("unknown link {link:?}")),
     };
     let opener = if cfg!(windows) { "explorer" } else { "xdg-open" };
     std::process::Command::new(opener).arg(url).spawn().map(|_| ()).map_err(|e| e.to_string())

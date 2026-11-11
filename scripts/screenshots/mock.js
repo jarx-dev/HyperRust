@@ -5,6 +5,7 @@
 // regenerate it when the defaults change visibly.
 (() => {
   const SETTINGS = {
+    "ui_language": "pl",
     "active_mode": "prompt",
     "audio": {
       "cues": true,
@@ -194,6 +195,7 @@
       builtin_prompts: PROMPTS,
       build: { version: "0.1.0", build: "demo-1762851600", built_at: 1762851600 },
       version: "v26.1111.0900",
+      local_build: false,
       secrets: { eleven_labs: true, eleven_labs_backup: false, xai: false, open_ai: false, open_router: true, llm_endpoint: false },
       logs_dir: "C:\\Users\\Demo\\AppData\\Local\\HyperRust\\logs",
       update: { state: "aktualna", message: "Masz najnowszą wersję", latest_build: "demo-1762851600", checked_at: sec(now - 2 * min) },
@@ -269,7 +271,7 @@
   };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} };
 
-  const OVERLAY = { state: "recording", mode: "Prompt dla agenta", switchable: true };
+  const OVERLAY = { state: "recording", mode: "Prompt dla agenta", lang: "pl", switchable: true };
   if (location.pathname.endsWith("overlay.html")) {
     let t = 0;
     setInterval(() => emit("overlay-level", 0.35 + 0.3 * Math.sin(t++ / 1.7) * Math.cos(t / 3.1)), 60);

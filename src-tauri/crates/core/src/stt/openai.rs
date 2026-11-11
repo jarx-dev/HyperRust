@@ -160,7 +160,7 @@ impl LiveProtocol for OpenAiLive {
                 }
             }
             "conversation.item.input_audio_transcription.failed" => LiveEvent::Error(Error::Provider(
-                v.pointer("/error/message").and_then(Value::as_str).unwrap_or("transkrypcja nieudana").to_string(),
+                v.pointer("/error/message").and_then(Value::as_str).map(str::to_string).unwrap_or_else(|| crate::tr!("transcription failed", "transkrypcja nieudana")),
             )),
             "error" => {
                 let code = v.pointer("/error/code").and_then(Value::as_str).unwrap_or("");

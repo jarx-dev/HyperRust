@@ -2,33 +2,52 @@
 
 use std::time::Duration;
 
-#[derive(Debug, thiserror::Error)]
+use crate::tr;
+
+#[derive(Debug)]
 pub enum Error {
-    #[error("brak klucza API dla {0}")]
     MissingKey(&'static str),
-    #[error("dostawca odrzucił klucz API ({status}): {message}")]
     Unauthorized { status: u16, message: String },
-    #[error("limit zapytań lub środków u dostawcy ({status}): {message}")]
     RateLimited { status: u16, message: String },
-    #[error("na koncie u dostawcy skończyły się środki ({status}): {message}")]
     QuotaExceeded { status: u16, message: String },
-    #[error("błąd HTTP {status}: {message}")]
     Http { status: u16, message: String },
-    #[error("błąd sieci: {0}")]
     Network(String),
-    #[error("przekroczono czas oczekiwania ({0:?})")]
     Timeout(Duration),
-    #[error("nieprawidłowa odpowiedź dostawcy: {0}")]
     InvalidResponse(String),
-    #[error("dostawca zgłosił błąd: {0}")]
     Provider(String),
-    #[error("nie wykryto mowy")]
     NoSpeech,
-    #[error("anulowano")]
     Cancelled,
-    #[error("{0}")]
     Other(String),
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match self {
+            Error::MissingKey(provider) => tr!("no API key for {provider}", "brak klucza API dla {provider}"),
+            Error::Unauthorized { status, message } => {
+                tr!("the provider rejected the API key ({status}): {message}", "dostawca odrzucił klucz API ({status}): {message}")
+            }
+            Error::RateLimited { status, message } => tr!(
+                "request or spending limit reached at the provider ({status}): {message}",
+                "limit zapytań lub środków u dostawcy ({status}): {message}"
+            ),
+            Error::QuotaExceeded { status, message } => tr!(
+                "the provider account is out of credits ({status}): {message}",
+                "na koncie u dostawcy skończyły się środki ({status}): {message}"
+            ),
+            Error::Http { status, message } => tr!("HTTP error {status}: {message}", "błąd HTTP {status}: {message}"),
+            Error::Network(e) => tr!("network error: {e}", "błąd sieci: {e}"),
+            Error::Timeout(d) => tr!("timed out ({d:?})", "przekroczono czas oczekiwania ({d:?})"),
+            Error::InvalidResponse(e) => tr!("invalid provider response: {e}", "nieprawidłowa odpowiedź dostawcy: {e}"),
+            Error::Provider(e) => tr!("the provider reported an error: {e}", "dostawca zgłosił błąd: {e}"),
+            Error::NoSpeech => tr!("no speech detected", "nie wykryto mowy"),
+            Error::Cancelled => tr!("cancelled", "anulowano"),
+            Error::Other(e) => e.clone(),
+        })
+    }
+}
+
+impl std::error::Error for Error {}
 
 pub type Result<T> = std::result::Result<T, Error>;
 

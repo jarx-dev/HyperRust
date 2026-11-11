@@ -13,6 +13,7 @@ use hyperrust_core::hotkey::{HotkeySpec, KeyEvent, PttAction, PttMachine, PttTim
 use hyperrust_core::session::{llm_label, post_process, stt_cost, transcribe};
 use hyperrust_core::stt::SttProviderKind;
 use hyperrust_core::timing::{Timeline, TimingMeta};
+use hyperrust_core::tr;
 use hyperrust_core::audio::TARGET_RATE;
 use tauri::{AppHandle, Manager};
 use tokio::sync::mpsc;
@@ -100,7 +101,7 @@ pub async fn run(app: AppHandle, mut rx: mpsc::UnboundedReceiver<CtlMsg>) {
                         discard(&app, rec);
                         ptt.reset();
                         deadline = None;
-                        overlay::claim(&app, OverlayState::Error { message: format!("Mikrofon przestał działać: {reason}") });
+                        overlay::claim(&app, OverlayState::Error { message: tr!("The microphone stopped working: {reason}", "Mikrofon przestał działać: {reason}") });
                     }
                     hotkey::set_recording(false);
                     continue;
@@ -150,21 +151,26 @@ async fn start(app: &AppHandle, pressed: Instant) -> Result<Recording, String> {
     let provider = settings.stt.provider;
     let (stt_secrets, stt_keys) = stt_keys(&state, provider);
     if stt_keys.is_empty() {
-        return Err(format!("Brak klucza {} — dodaj go w ustawieniach", provider.label()));
+        let provider = provider.label();
+        return Err(tr!("No {provider} key — add it in the settings", "Brak klucza {provider} — dodaj go w ustawieniach"));
     }
     // Held from the key press to the end of paste; blocks the update swap.
     let busy = state
         .try_begin_dictation()
-        .ok_or_else(|| "Trwa instalacja aktualizacji — spróbuj za chwilę".to_string())?;
+        .ok_or_else(|| tr!("An update is being installed — try again in a moment", "Trwa instalacja aktualizacji — spróbuj za chwilę"))?;
     let target = paste::foreground();
 
     let (tx, rx) = mpsc::unbounded_channel();
-    state.recorder.start(tx).await.map_err(|e| format!("Mikrofon: {e}"))?;
+    state.recorder.start(tx).await.map_err(|e| tr!("Microphone: {e}", "Mikrofon: {e}"))?;
     hotkey::set_recording(true);
 
     let overlay_id = overlay::claim(
         app,
-        OverlayState::Recording { mode: settings.active_mode().name.clone(), switchable: settings.next_mode().is_some() },
+        OverlayState::Recording {
+            mode: settings.active_mode().name.clone(),
+            lang: settings.ui_language,
+            switchable: settings.next_mode().is_some(),
+        },
     );
     let start_cue = settings.audio.cues.then(|| {
         tauri::async_runtime::spawn(async {
@@ -219,7 +225,7 @@ async fn start(app: &AppHandle, pressed: Instant) -> Result<Recording, String> {
                     let report = tl.report(meta);
                     crate::logging::record_timing(&report);
                     state.push_timing(report);
-                    overlay::set_for(&app, overlay_id, OverlayState::Error { message: format!("Transkrypcja: {e}") });
+                    overlay::set_for(&app, overlay_id, OverlayState::Error { message: tr!("Transcription: {e}", "Transkrypcja: {e}") });
                     return;
                 }
             };
@@ -237,7 +243,11 @@ async fn start(app: &AppHandle, pressed: Instant) -> Result<Recording, String> {
             let switched_to = (outcome.key_index > 0).then(|| {
                 let used = stt_secrets[outcome.key_index];
                 *PREFERRED_STT_KEY.lock().expect("preferred STT key") = Some(used);
-                let which = if used == SecretKey::ElevenLabsBackup { "klucz zapasowy" } else { "klucz główny" };
+                let which = if used == SecretKey::ElevenLabsBackup {
+                    tr!("backup key", "klucz zapasowy")
+                } else {
+                    tr!("main key", "klucz główny")
+                };
                 tracing::warn!("{}: przełączono na {which}", provider.label());
                 which
             });
@@ -249,7 +259,7 @@ async fn start(app: &AppHandle, pressed: Instant) -> Result<Recording, String> {
             let mut warning = None;
             meta.outcome = "ok".into();
             if mode.post_process {
-                overlay::set_for(&app, overlay_id, OverlayState::Processing { stage: "Porządkowanie".into() });
+                overlay::set_for(&app, overlay_id, OverlayState::Processing { stage: tr!("Cleaning up", "Porządkowanie") });
                 let llm = settings.llm.for_mode(&mode);
                 meta.llm = llm_label(&llm);
                 let llm_key = llm.secret().and_then(|k| state.secrets.get(k));
@@ -262,12 +272,15 @@ async fn start(app: &AppHandle, pressed: Instant) -> Result<Recording, String> {
                     Ok(out) => {
                         meta.llm_cost_usd = out.cost_usd;
                         meta.outcome = "llm_empty_raw".into();
-                        warning = Some("Post-processing zwrócił pusty wynik — wklejono surową transkrypcję".to_string());
+                        warning = Some(tr!(
+                            "Post-processing returned an empty result — pasted the raw transcript",
+                            "Post-processing zwrócił pusty wynik — wklejono surową transkrypcję"
+                        ));
                     }
                     Err(e) => {
                         tracing::warn!("post-processing {}: {e}", meta.llm);
                         meta.outcome = "llm_error_raw".into();
-                        warning = Some(format!("Post-processing: {e} — wklejono surową transkrypcję"));
+                        warning = Some(tr!("Post-processing: {e} — pasted the raw transcript", "Post-processing: {e} — wklejono surową transkrypcję"));
                     }
                 }
                 tl.llm_done = Some(Instant::now());
@@ -291,17 +304,17 @@ async fn start(app: &AppHandle, pressed: Instant) -> Result<Recording, String> {
                 Ok(restore) => restore,
                 Err(e) => {
                     meta.outcome = "paste_error".into();
-                    warning = Some(format!("Wklejanie: {e}"));
+                    warning = Some(tr!("Paste: {e}", "Wklejanie: {e}"));
                     None
                 }
             };
             let report = tl.report(meta);
             crate::logging::record_timing(&report);
             state.push_timing(report.clone());
-            let done = if auto_paste { "Wklejono" } else { "Skopiowano do schowka" };
+            let done = if auto_paste { tr!("Pasted", "Wklejono") } else { tr!("Copied to the clipboard", "Skopiowano do schowka") };
             let done = match switched_to {
                 Some(key) => format!("{done} · {key}"),
-                None => done.to_string(),
+                None => done,
             };
             match warning {
                 Some(message) => overlay::set_for(&app, overlay_id, OverlayState::Error { message }),
@@ -356,7 +369,7 @@ fn stop(app: &AppHandle, rec: Recording, released: Instant) {
             cue.abort();
         }
     }
-    overlay::set_for(app, rec.overlay_id, OverlayState::Processing { stage: "Transkrypcja".into() });
+    overlay::set_for(app, rec.overlay_id, OverlayState::Processing { stage: tr!("Transcribing", "Transkrypcja") });
     hotkey::set_recording(false);
 }
 
@@ -395,10 +408,10 @@ pub async fn keep_warm(app: AppHandle) {
 }
 
 /// Hotkey mode for the tray label.
-pub fn mode_label(mode: HotkeyMode) -> &'static str {
+pub fn mode_label(mode: HotkeyMode) -> String {
     match mode {
-        HotkeyMode::Auto => "przytrzymaj lub stuknij dwa razy",
-        HotkeyMode::Hold => "przytrzymaj",
-        HotkeyMode::Toggle => "naciśnij, aby zacząć i skończyć",
+        HotkeyMode::Auto => tr!("hold or double-tap", "przytrzymaj lub stuknij dwa razy"),
+        HotkeyMode::Hold => tr!("hold", "przytrzymaj"),
+        HotkeyMode::Toggle => tr!("press to start and stop", "naciśnij, aby zacząć i skończyć"),
     }
 }

@@ -93,7 +93,7 @@ pub fn recent(path: &Path, n: usize) -> io::Result<Vec<Value>> {
 /// Tailscale/loopback `http://` are accepted (see
 /// [`crate::update::validate_private_url`]); use a client without redirects.
 pub async fn upload(client: &Client, url: &str, entries: &[Value]) -> Result<()> {
-    let url = crate::update::validate_private_url(url, "historii")?;
+    let url = crate::update::validate_private_url(url, &crate::tr!("history", "historii"))?;
     let resp = client
         .post(url)
         .json(entries)
@@ -158,6 +158,6 @@ mod tests {
     async fn upload_rejects_public_http() {
         let client = crate::update::client().unwrap();
         let err = upload(&client, "http://example.com/history", &[]).await.unwrap_err();
-        assert!(err.to_string().contains("adres historii"), "{err}");
+        assert!(err.to_string().contains("history address"), "{err}");
     }
 }

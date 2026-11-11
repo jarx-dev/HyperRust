@@ -28,7 +28,7 @@
   <br><sub>All screenshots show demo data (made-up dictations and balances).</sub>
 </p>
 
-> The app's interface is currently in Polish. Polish labels are quoted below with their English meaning in parentheses on first use.
+> The interface is in English or Polish: new installations start in English, and „Ogólne” (General) → Language / Język switches it. The screenshots and the labels quoted below are from the Polish interface, with the English label in parentheses on first use.
 
 ---
 
@@ -85,7 +85,7 @@ keyboard hook (WH_KEYBOARD_LL) → microphone (WASAPI, 16 kHz mono, 300 ms from 
 <p align="center"><img src="docs/screenshots/history.png" alt="History page: dictations grouped by day with the transcript and the result"></p>
 
 **Appearance**
-- Light and dark theme following the Windows setting; the whole interface is in Polish.
+- Light and dark theme following the Windows setting; the interface in English or Polish.
 
 <p align="center"><img src="docs/screenshots/dark.png" alt="Settings window in the dark theme"></p>
 

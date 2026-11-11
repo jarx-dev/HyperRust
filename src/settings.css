@@ -877,7 +877,7 @@ td > button {
 }
 
 .htrans::before {
-  content: "Transkrypcja: ";
+  content: attr(data-label);
   font-weight: 600;
 }
 

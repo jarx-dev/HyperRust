@@ -130,8 +130,8 @@ impl LiveProtocol for XaiLive {
                 let msg = v
                     .get("message")
                     .and_then(Value::as_str)
-                    .unwrap_or("nieznany błąd")
-                    .to_string();
+                    .map(str::to_string)
+                    .unwrap_or_else(|| crate::tr!("unknown error", "nieznany błąd"));
                 let lower = msg.to_lowercase();
                 LiveEvent::Error(if lower.contains("auth") || lower.contains("api key") {
                     Error::Unauthorized { status: 401, message: msg }

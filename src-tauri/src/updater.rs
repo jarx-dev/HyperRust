@@ -94,13 +94,13 @@ fn failed_path(exe: &Path) -> PathBuf {
 pub async fn run(app: AppHandle) {
     let state = app.state::<AppState>();
     if env!("HYPERRUST_SELF_UPDATE").is_empty() {
-        state.update.set("wyłączone", "Ten build zbudowano lokalnie i nie aktualizuje się sam", None);
+        state.update.set("wyłączone", hyperrust_core::tr!("This build was made locally and does not update itself", "Ten build zbudowano lokalnie i nie aktualizuje się sam"), None);
         return;
     }
     let client = match update::client() {
         Ok(c) => c,
         Err(e) => {
-            state.update.set("błąd", format!("Klient HTTP: {e}"), None);
+            state.update.set("błąd", hyperrust_core::tr!("HTTP client: {e}", "Klient HTTP: {e}"), None);
             return;
         }
     };
@@ -122,15 +122,15 @@ pub async fn run(app: AppHandle) {
                         Err(e) => {
                             state.end_install();
                             tracing::warn!("instalacja aktualizacji: {e}");
-                            state.update.set("błąd", format!("Instalacja: {e}"), None);
+                            state.update.set("błąd", hyperrust_core::tr!("Installation: {e}", "Instalacja: {e}"), None);
                         }
                     }
                 } else {
-                    state.update.set("wyłączone", "Automatyczne aktualizacje są wyłączone", None);
+                    state.update.set("wyłączone", hyperrust_core::tr!("Automatic updates are off", "Automatyczne aktualizacje są wyłączone"), None);
                 }
             }
         } else {
-            state.update.set("wyłączone", "Automatyczne aktualizacje są wyłączone", None);
+            state.update.set("wyłączone", hyperrust_core::tr!("Automatic updates are off", "Automatyczne aktualizacje są wyłączone"), None);
         }
         let interval = Duration::from_secs(settings.interval_s.max(15));
         tokio::select! {
@@ -151,32 +151,37 @@ async fn check_and_download(app: &AppHandle, client: &reqwest::Client) -> Option
             return None;
         }
     };
-    state.update.set("sprawdzanie", "Sprawdzanie…", None);
+    state.update.set("sprawdzanie", hyperrust_core::tr!("Checking…", "Sprawdzanie…"), None);
     let manifest = match update::fetch_manifest(client, &url).await {
         Ok(m) => m,
         Err(e) => {
             tracing::debug!("sprawdzanie aktualizacji: {e}");
-            state.update.set("błąd", format!("Serwer aktualizacji: {e}"), None);
+            state.update.set("błąd", hyperrust_core::tr!("Update server: {e}", "Serwer aktualizacji: {e}"), None);
             return None;
         }
     };
     if !manifest.is_newer_than(&BUILD) {
-        state.update.set("aktualna", format!("Najnowsza wersja ({})", BUILD.build), Some(&manifest));
+        let build = BUILD.build;
+        state.update.set("aktualna", hyperrust_core::tr!("Up to date ({build})", "Najnowsza wersja ({build})"), Some(&manifest));
         return None;
     }
 
     let exe = match std::env::current_exe() {
         Ok(p) => p,
         Err(e) => {
-            state.update.set("błąd", format!("Ścieżka programu: {e}"), Some(&manifest));
+            state.update.set("błąd", hyperrust_core::tr!("Program path: {e}", "Ścieżka programu: {e}"), Some(&manifest));
             return None;
         }
     };
     let skipped = std::fs::read_to_string(skip_file(&exe)).unwrap_or_default();
+    let build = &manifest.build;
     if skipped.trim() == manifest.sha256 {
         state.update.set(
             "błąd",
-            format!("Build {} nie uruchomił się i został wycofany — opublikuj nowszy", manifest.build),
+            hyperrust_core::tr!(
+                "Build {build} failed to start and was rolled back — publish a newer one",
+                "Build {build} nie uruchomił się i został wycofany — opublikuj nowszy"
+            ),
             Some(&manifest),
         );
         return None;
@@ -184,7 +189,7 @@ async fn check_and_download(app: &AppHandle, client: &reqwest::Client) -> Option
     let staged = staged_path(&exe);
     let already = std::fs::read(&staged).ok().is_some_and(|b| update::verify(&b, &manifest).is_ok());
     if !already {
-        state.update.set("pobieranie", format!("Pobieranie {}…", manifest.build), Some(&manifest));
+        state.update.set("pobieranie", hyperrust_core::tr!("Downloading {build}…", "Pobieranie {build}…"), Some(&manifest));
         let bytes = match update::download_url(&url, &manifest) {
             Ok(dl) => update::download_verified(client, &dl, &manifest).await,
             Err(e) => Err(e),
@@ -192,17 +197,18 @@ async fn check_and_download(app: &AppHandle, client: &reqwest::Client) -> Option
         let bytes = match bytes {
             Ok(b) => b,
             Err(e) => {
-                state.update.set("błąd", format!("Pobieranie: {e}"), Some(&manifest));
+                state.update.set("błąd", hyperrust_core::tr!("Download: {e}", "Pobieranie: {e}"), Some(&manifest));
                 return None;
             }
         };
         if let Err(e) = update::write_atomically(&staged, &bytes) {
-            state.update.set("błąd", format!("Zapis {}: {e}", staged.display()), Some(&manifest));
+            let path = staged.display();
+            state.update.set("błąd", hyperrust_core::tr!("Writing {path}: {e}", "Zapis {path}: {e}"), Some(&manifest));
             return None;
         }
     }
     tracing::info!("aktualizacja {} gotowa ({})", manifest.build, manifest.notes);
-    state.update.set("gotowa", format!("Zainstaluję {} po zakończeniu dyktowania", manifest.build), Some(&manifest));
+    state.update.set("gotowa", hyperrust_core::tr!("Will install {build} after the dictation ends", "Zainstaluję {build} po zakończeniu dyktowania"), Some(&manifest));
     Some((staged, manifest))
 }
 
@@ -225,16 +231,16 @@ async fn lock_when_idle(app: &AppHandle) -> bool {
 /// rolled back.
 fn apply(staged: &Path) -> Result<(), String> {
     if !cfg!(windows) {
-        return Err("podmiana programu działa tylko w Windows".into());
+        return Err(hyperrust_core::tr!("replacing the program works only on Windows", "podmiana programu działa tylko w Windows"));
     }
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let old = old_path(&exe);
     let _ = std::fs::remove_file(&old);
     let _ = std::fs::remove_file(ready_marker(&exe));
-    std::fs::rename(&exe, &old).map_err(|e| format!("zmiana nazwy bieżącego programu: {e}"))?;
+    std::fs::rename(&exe, &old).map_err(|e| hyperrust_core::tr!("renaming the running program: {e}", "zmiana nazwy bieżącego programu: {e}"))?;
     if let Err(e) = std::fs::rename(staged, &exe) {
         let _ = std::fs::rename(&old, &exe);
-        return Err(format!("podmiana programu: {e}"));
+        return Err(hyperrust_core::tr!("replacing the program: {e}", "podmiana programu: {e}"));
     }
     let mut child = match std::process::Command::new(&exe)
         .arg(AFTER_UPDATE_ARG)
@@ -245,7 +251,7 @@ fn apply(staged: &Path) -> Result<(), String> {
         Err(e) => {
             let _ = std::fs::rename(&exe, staged);
             let _ = std::fs::rename(&old, &exe);
-            return Err(format!("uruchomienie nowej wersji: {e}"));
+            return Err(hyperrust_core::tr!("starting the new version: {e}", "uruchomienie nowej wersji: {e}"));
         }
     };
     // Our own image now lives at `old`; run it as the guard of the new build.
@@ -261,7 +267,7 @@ fn apply(staged: &Path) -> Result<(), String> {
         let _ = child.wait();
         let _ = std::fs::rename(&exe, staged);
         let _ = std::fs::rename(&old, &exe);
-        return Err(format!("uruchomienie strażnika aktualizacji: {e}"));
+        return Err(hyperrust_core::tr!("starting the update guard: {e}", "uruchomienie strażnika aktualizacji: {e}"));
     }
     Ok(())
 }

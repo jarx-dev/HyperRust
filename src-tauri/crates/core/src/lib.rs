@@ -15,6 +15,7 @@ pub mod error;
 pub mod history;
 pub mod hotkey;
 pub mod http;
+pub mod i18n;
 pub mod llm;
 pub mod modes;
 pub mod ranking;

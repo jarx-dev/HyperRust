@@ -23,6 +23,8 @@ pub enum OverlayState {
     Hidden,
     Recording {
         mode: String,
+        /// UI language of the indicator's own texts.
+        lang: hyperrust_core::config::UiLanguage,
         /// More than one mode: clicking the name switches to the next one.
         switchable: bool,
     },

@@ -152,7 +152,7 @@ pub async fn complete_http(
             let text = v
                 .pointer("/choices/0/message/content")
                 .and_then(Value::as_str)
-                .ok_or_else(|| Error::InvalidResponse("brak choices[0].message.content".into()))?;
+                .ok_or_else(|| Error::InvalidResponse(crate::tr!("missing choices[0].message.content", "brak choices[0].message.content")))?;
             let cost_usd = v.pointer("/usage/cost").and_then(Value::as_f64);
             return Ok(LlmOutput { text: extract_output(text), first_token: Some(Instant::now()), cost_usd });
         }
@@ -192,10 +192,10 @@ pub async fn complete_http(
         // A stream cut off mid-answer would paste a truncated prompt; the
         // caller falls back to the full raw transcript instead.
         if !finished {
-            return Err(Error::InvalidResponse("strumień urwał się przed końcem odpowiedzi".into()));
+            return Err(Error::InvalidResponse(crate::tr!("the stream broke off before the end of the reply", "strumień urwał się przed końcem odpowiedzi")));
         }
         if raw.trim().is_empty() {
-            return Err(Error::InvalidResponse("model zwrócił pustą odpowiedź".into()));
+            return Err(Error::InvalidResponse(crate::tr!("the model returned an empty reply", "model zwrócił pustą odpowiedź")));
         }
         Ok(LlmOutput { text: extract_output(&raw), first_token, cost_usd })
     };
@@ -288,8 +288,9 @@ pub fn find_program(name: &str) -> Option<PathBuf> {
 
 /// Run a CLI backend and return the extracted result.
 pub async fn complete_cli(kind: CliKind, model: &str, system: &str, transcript: &str, timeout: Duration) -> Result<LlmOutput> {
-    let program = find_program(kind.program())
-        .ok_or_else(|| Error::Other(format!("nie znaleziono `{}` w PATH", kind.program())))?;
+    let name = kind.program();
+    let program =
+        find_program(name).ok_or_else(|| Error::Other(crate::tr!("`{name}` not found in PATH", "nie znaleziono `{name}` w PATH")))?;
     let ext = program
         .extension()
         .map(|e| e.to_string_lossy().to_ascii_lowercase())
@@ -347,11 +348,11 @@ pub async fn complete_cli(kind: CliKind, model: &str, system: &str, transcript: 
                 None => String::new(),
             };
             let tail: String = err.trim().chars().rev().take(300).collect::<Vec<_>>().into_iter().rev().collect();
-            return Err(Error::Other(format!("{} zakończył się kodem {status}: {tail}", kind.program())));
+            return Err(Error::Other(crate::tr!("{name} exited with code {status}: {tail}", "{name} zakończył się kodem {status}: {tail}")));
         }
         let text = String::from_utf8_lossy(&out).to_string();
         if text.trim().is_empty() {
-            return Err(Error::InvalidResponse(format!("{} nic nie zwrócił", kind.program())));
+            return Err(Error::InvalidResponse(crate::tr!("{name} returned nothing", "{name} nic nie zwrócił")));
         }
         Ok(LlmOutput { text: extract_output(&text), first_token, cost_usd: None })
     };

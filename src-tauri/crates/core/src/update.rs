@@ -18,6 +18,7 @@ use sha2::{Digest, Sha256};
 use url::{Host, Url};
 
 use crate::error::{Error, Result};
+use crate::tr;
 
 /// Where public releases are published; GitHub publishes no model ranking.
 pub const GITHUB_UPDATE_URL: &str = "https://github.com/jarx-dev/HyperRust/releases/latest/download/latest.json";
@@ -43,7 +44,7 @@ pub fn client() -> reqwest::Result<Client> {
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
             let https = |u: &Url| u.scheme() == "https";
             if attempt.previous().len() > 5 {
-                attempt.error("za dużo przekierowań")
+                attempt.error(tr!("too many redirects", "za dużo przekierowań"))
             } else if https(attempt.url()) && attempt.previous().iter().all(https) {
                 attempt.follow()
             } else {
@@ -89,27 +90,27 @@ impl Manifest {
 
 /// Parse and sanity-check `latest.json`.
 pub fn parse_manifest(bytes: &[u8]) -> Result<Manifest> {
-    let mut m: Manifest = serde_json::from_slice(bytes)
-        .map_err(|e| Error::InvalidResponse(format!("manifest aktualizacji: {e}")))?;
+    let what = tr!("update manifest", "manifest aktualizacji");
+    let mut m: Manifest = serde_json::from_slice(bytes).map_err(|e| Error::InvalidResponse(format!("{what}: {e}")))?;
     m.sha256 = m.sha256.trim().to_ascii_lowercase();
     if m.sha256.len() != 64 || !m.sha256.bytes().all(|b| b.is_ascii_hexdigit()) {
-        return Err(Error::InvalidResponse("manifest aktualizacji: zła suma sha256".into()));
+        return Err(Error::InvalidResponse(tr!("{what}: bad sha256 sum", "{what}: zła suma sha256")));
     }
     if m.build.trim().is_empty() || m.url.trim().is_empty() {
-        return Err(Error::InvalidResponse("manifest aktualizacji: brak pola build lub url".into()));
+        return Err(Error::InvalidResponse(tr!("{what}: missing build or url field", "{what}: brak pola build lub url")));
     }
     Ok(m)
 }
 
 /// Accept `https://` anywhere, `http://` only for loopback and the tailnet.
 pub fn validate_url(raw: &str) -> Result<Url> {
-    validate_private_url(raw, "aktualizacji")
+    validate_private_url(raw, &tr!("update", "aktualizacji"))
 }
 
 /// The transport rule of [`validate_url`] for any HyperRust server; `what`
-/// names the address in the error message ("aktualizacji", "historii").
+/// names the address in the error message (`tr!("history", "historii")`).
 pub fn validate_private_url(raw: &str, what: &str) -> Result<Url> {
-    let url = Url::parse(raw.trim()).map_err(|e| Error::Other(format!("adres {what} „{raw}”: {e}")))?;
+    let url = Url::parse(raw.trim()).map_err(|e| Error::Other(tr!("{what} address \"{raw}\": {e}", "adres {what} „{raw}”: {e}")))?;
     let ok = match url.scheme() {
         "https" => url.host().is_some(),
         "http" => url.host().is_some_and(is_private_transport_host),
@@ -118,7 +119,8 @@ pub fn validate_private_url(raw: &str, what: &str) -> Result<Url> {
     if ok {
         Ok(url)
     } else {
-        Err(Error::Other(format!(
+        Err(Error::Other(tr!(
+            "{what} address \"{raw}\" must be https://, or http:// on the Tailscale network (100.64.0.0/10, *.ts.net) or local",
             "adres {what} „{raw}” musi być https:// albo http:// w sieci Tailscale (100.64.0.0/10, *.ts.net) lub lokalny"
         )))
     }
@@ -150,7 +152,7 @@ fn is_tailscale_v6(ip: Ipv6Addr) -> bool {
 pub fn download_url(manifest_url: &Url, m: &Manifest) -> Result<Url> {
     let joined = manifest_url
         .join(m.url.trim())
-        .map_err(|e| Error::InvalidResponse(format!("manifest aktualizacji: url: {e}")))?;
+        .map_err(|e| Error::InvalidResponse(tr!("update manifest: url: {e}", "manifest aktualizacji: url: {e}")))?;
     validate_url(joined.as_str())
 }
 
@@ -180,12 +182,12 @@ pub async fn download_verified(client: &Client, url: &Url, m: &Manifest) -> Resu
     }
     let expected = m.size.or(resp.content_length()).unwrap_or(0);
     if expected > MAX_DOWNLOAD_BYTES {
-        return Err(Error::InvalidResponse(format!("aktualizacja za duża ({expected} B)")));
+        return Err(Error::InvalidResponse(tr!("update too large ({expected} B)", "aktualizacja za duża ({expected} B)")));
     }
     let mut bytes = Vec::with_capacity(expected as usize);
     while let Some(chunk) = resp.chunk().await? {
         if bytes.len() as u64 + chunk.len() as u64 > MAX_DOWNLOAD_BYTES {
-            return Err(Error::InvalidResponse("aktualizacja przekracza limit rozmiaru".into()));
+            return Err(Error::InvalidResponse(tr!("update exceeds the size limit", "aktualizacja przekracza limit rozmiaru")));
         }
         bytes.extend_from_slice(&chunk);
     }
@@ -196,21 +198,23 @@ pub async fn download_verified(client: &Client, url: &Url, m: &Manifest) -> Resu
 /// Check a downloaded EXE against its manifest.
 pub fn verify(bytes: &[u8], m: &Manifest) -> Result<()> {
     if let Some(size) = m.size {
-        if bytes.len() as u64 != size {
-            return Err(Error::InvalidResponse(format!(
-                "aktualizacja: rozmiar {} B zamiast {size} B",
-                bytes.len()
+        let got = bytes.len();
+        if got as u64 != size {
+            return Err(Error::InvalidResponse(tr!(
+                "update: size {got} B instead of {size} B",
+                "aktualizacja: rozmiar {got} B zamiast {size} B"
             )));
         }
     }
     let actual = sha256_hex(bytes);
     if actual != m.sha256 {
-        return Err(Error::InvalidResponse(format!(
+        return Err(Error::InvalidResponse(tr!(
+            "update: sha256 sum {actual} does not match the manifest",
             "aktualizacja: suma sha256 {actual} nie zgadza się z manifestem"
         )));
     }
     if !bytes.starts_with(b"MZ") {
-        return Err(Error::InvalidResponse("aktualizacja nie jest plikiem EXE".into()));
+        return Err(Error::InvalidResponse(tr!("update is not an EXE file", "aktualizacja nie jest plikiem EXE")));
     }
     Ok(())
 }
