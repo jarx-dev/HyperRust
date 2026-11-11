@@ -1,136 +1,145 @@
 <p align="center">
-  <img src="src-tauri/icons/128x128@2x.png" width="112" alt="Ikona HyperRust">
+  <b>English</b> | <a href="README.pl.md">Polski</a>
+</p>
+
+<p align="center">
+  <img src="src-tauri/icons/128x128@2x.png" width="112" alt="HyperRust icon">
 </p>
 
 <h1 align="center">HyperRust</h1>
 
 <p align="center">
-  <b>Dyktowanie promptów dla agentów AI na Windows, napisane w Rust.</b><br>
-  Przytrzymujesz skrót, mówisz, puszczasz, a tekst ląduje w aktywnym oknie po ćwierć sekundy.
+  <b>Dictation for AI agent prompts on Windows, written in Rust.</b><br>
+  Hold a hotkey, speak, let go, and the text lands in the active window a quarter of a second later.
+</p>
+
+<p align="center">
+  <b><a href="https://github.com/jarx-dev/HyperRust/releases/latest">Download the latest version</a></b>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Rust-Tauri%202-orange?logo=rust" alt="Rust, Tauri 2">
-  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows" alt="Windows 10 i 11">
-  <img src="https://img.shields.io/badge/licencja-MIT-green" alt="Licencja MIT">
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows" alt="Windows 10 and 11">
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/overview.png" alt="Okno ustawień, strona Przegląd: skrót, tryb, dostawcy, saldo kont i ostatnie dyktowania">
-  <br><sub>Wszystkie zrzuty pokazują dane demonstracyjne (zmyślone dyktowania i salda).</sub>
+  <img src="docs/screenshots/overview.png" alt="Settings window, Overview page: hotkey, mode, providers, account balances and recent dictations">
+  <br><sub>All screenshots show demo data (made-up dictations and balances).</sub>
 </p>
 
-> **English in short:** a fast push-to-talk dictation app for Windows, written in Rust with
-> Tauri 2. Hold a key, speak, release: the transcript, optionally tidied up by an LLM, is pasted
-> into the active window. Audio streams to the speech-to-text service while you speak (ElevenLabs
-> Scribe, xAI, OpenAI or OpenRouter), so only ~0.25 s is left after you let go. Modes decide what
-> happens to the text, a dictionary fixes names the model gets wrong, and the app tracks your
-> provider balances. Single portable EXE, keys in the Windows Credential Manager, Polish UI.
+> The app's interface is currently in Polish. Polish labels are quoted below with their English meaning in parentheses on first use.
 
 ---
 
-## Dlaczego
+## Why
 
-Dyktowanie poleceń dla Claude Code, Codexa czy ChatGPT jest szybsze niż pisanie, ale tylko wtedy,
-gdy narzędzie nie każe czekać. HyperRust robi jedną rzecz: ścieżkę od klawisza do wklejonego tekstu,
-z najnowszymi modelami i z naciskiem na czas od puszczenia klawisza. Dźwięk płynie do rozpoznawania
-mowy już w trakcie mówienia, więc po puszczeniu klawisza zostaje tylko domknięcie transkrypcji.
+Dictating commands to Claude Code, Codex or ChatGPT is faster than typing, but only if the tool
+doesn't make you wait. HyperRust does one thing: the path from keypress to pasted text, with the
+latest models and a focus on the time after you release the key. Audio streams to the
+speech-to-text service while you are still speaking, so all that is left after you let go is
+finishing the transcription.
 
 ```
-hook klawiatury (WH_KEYBOARD_LL) → mikrofon (WASAPI, 16 kHz mono, 300 ms sprzed naciśnięcia)
-  → STT na żywo (WebSocket) → [post-processing LLM, streaming SSE]
-  → schowek + Ctrl+V → przywrócenie poprzedniego schowka
+keyboard hook (WH_KEYBOARD_LL) → microphone (WASAPI, 16 kHz mono, 300 ms from before the keypress)
+  → live STT (WebSocket) → [LLM post-processing, SSE streaming]
+  → clipboard + Ctrl+V → restore the previous clipboard
 ```
 
-## Co potrafi
+## Features
 
-**Dyktowanie**
-- Jeden globalny skrót, domyślnie `Ctrl+Shift+Space`: przytrzymaj (push-to-talk) albo stuknij dwa
-  razy (nagrywanie bez trzymania). Może to być sam modyfikator, np. `RightCtrl`. Escape anuluje.
-- Krótkie piknięcie na początku i końcu nagrania, wskaźnik nagrywania z poziomem dźwięku, który
-  nie zabiera fokusu. Kliknięcie w niego kończy dyktowanie, a w nazwę trybu przełącza tryb.
-- Odporność: gdy streaming zawiedzie, to samo nagranie idzie wsadowo; gdy zawiedzie LLM, wkleja
-  się surowa transkrypcja. Drugie konto ElevenLabs przejmuje dyktowanie, gdy na pierwszym
-  skończą się kredyty.
+**Dictation**
+- One global hotkey, `Ctrl+Shift+Space` by default: hold it (push-to-talk) or double-tap it
+  (recording without holding). It can be a lone modifier, e.g. `RightCtrl`. Escape cancels.
+- A short beep at the start and end of the recording, and a recording indicator with a level meter
+  that doesn't steal focus. Click it to finish dictating, or click the mode name to switch modes.
+- Resilience: if streaming fails, the same recording is sent as a batch; if the LLM fails, the raw
+  transcript is pasted. A second ElevenLabs account takes over dictation when the first one runs
+  out of credits.
 
-<p align="center"><img src="docs/screenshots/overlay.png" width="420" alt="Wskaźnik nagrywania z falą dźwięku i nazwą trybu"></p>
+<p align="center"><img src="docs/screenshots/overlay.png" width="420" alt="Recording indicator with a sound wave and the mode name"></p>
 
-**Tryby i post-processing**
-- „Bez AI” wkleja transkrypcję od razu, „Porządkowanie tekstu” poprawia interpunkcję
-  i wypełniacze, a „Prompt dla agenta” redaguje minimalnie: usuwa „yyy” i samopoprawki, poprawia
-  nazwy techniczne („git czekaut” → `git checkout`), a twoich słów i tonu nie rusza.
-- Każdy tryb może mieć własny model i prompt. Wykonawca: OpenRouter, dowolny endpoint zgodny
-  z OpenAI (np. CLIProxy na subskrypcji), `claude -p` albo `codex exec`.
-- Słownik nazw, które rozpoznawanie przekręca (`Claude Code = Cloud Code`): podpowiada je
-  ElevenLabs, trafia do promptu i poprawia wklejany tekst także bez AI.
-- Ranking modeli post-processingu odświeżany codziennie: każdy nowy model czatu z OpenRouter
-  dostaje te same polskie dyktowania, ślepy sędzia ocenia wynik, a tabela pokazuje ocenę, czas
-  i koszt. Model z rankingu wybierasz jednym kliknięciem.
+**Modes and post-processing**
+- „Bez AI” (No AI) pastes the transcript as is, „Porządkowanie tekstu” (Text cleanup) fixes
+  punctuation and filler words, and „Prompt dla agenta” (Agent prompt) edits minimally: it removes
+  "um"s and self-corrections and fixes technical names ("git check out" → `git checkout`), but
+  leaves your words and tone alone.
+- Each mode can have its own model and prompt. The backend can be OpenRouter, any
+  OpenAI-compatible endpoint (e.g. CLIProxy on a subscription), `claude -p` or `codex exec`.
+- A dictionary of names that speech recognition tends to mangle (`Claude Code = Cloud Code`): it is
+  passed to ElevenLabs as a hint, added to the prompt, and used to fix the pasted text even
+  without AI.
+- A ranking of post-processing models, refreshed daily: every new OpenRouter chat model gets the
+  same Polish dictations, a blind judge scores the output, and the table shows score, time and
+  cost. You pick a model from the ranking with one click.
 
-<p align="center"><img src="docs/screenshots/modes.png" alt="Strona Tryby: tryb aktywny, rodzaj trybu, model i prompt"></p>
+<p align="center"><img src="docs/screenshots/modes.png" alt="Modes page: active mode, mode type, model and prompt"></p>
 
-**Przegląd i historia**
-- Saldo ElevenLabs i OpenRouter z prognozą, na ile starczy, także w dymku ikony w zasobniku.
-- Nowe modele STT i LLM z ostatnich 45 dni, zużycie z 7 i 30 dni, czasy etapów i koszt każdego
-  dyktowania.
-- Historia dyktowań z wyszukiwarką: surowa transkrypcja obok wklejonego tekstu.
+**Overview and history**
+- ElevenLabs and OpenRouter balances with a forecast of how long they will last, also in the
+  tooltip of the tray icon.
+- New STT and LLM models from the last 45 days, usage over 7 and 30 days, stage timings and the
+  cost of each dictation.
+- Dictation history with search: the raw transcript next to the pasted text.
 
-<p align="center"><img src="docs/screenshots/history.png" alt="Strona Historia: dyktowania pogrupowane po dniach z transkrypcją i wynikiem"></p>
+<p align="center"><img src="docs/screenshots/history.png" alt="History page: dictations grouped by day with the transcript and the result"></p>
 
-**Wygląd**
-- Jasny i ciemny motyw według ustawień Windows, cały interfejs po polsku.
+**Appearance**
+- Light and dark theme following the Windows setting; the whole interface is in Polish.
 
-<p align="center"><img src="docs/screenshots/dark.png" alt="Okno ustawień w ciemnym motywie"></p>
+<p align="center"><img src="docs/screenshots/dark.png" alt="Settings window in the dark theme"></p>
 
-## Szybkość
+## Speed
 
-Zmierzone od puszczenia klawisza, 12 s polskiej mowy:
+Measured from the moment the key is released, with 12 s of Polish speech:
 
-| Konfiguracja | Czas |
+| Setup | Time |
 |---|---|
-| ElevenLabs na żywo, tryb „Bez AI” | 0,21–0,30 s |
-| ElevenLabs na żywo + Gemini 3.1 Flash Lite przez OpenRouter | 0,96–1,18 s |
-| ElevenLabs na żywo + Haiku 5.5 przez OpenRouter | 1,49–1,75 s |
-| Rozpoznawanie i Haiku 5.5, oba przez OpenRouter (bez streamingu) | 2,23–2,49 s |
+| ElevenLabs live, „Bez AI” (No AI) mode | 0.21–0.30 s |
+| ElevenLabs live + Gemini 3.1 Flash Lite via OpenRouter | 0.96–1.18 s |
+| ElevenLabs live + Haiku 5.5 via OpenRouter | 1.49–1.75 s |
+| Recognition and Haiku 5.5, both via OpenRouter (no streaming) | 2.23–2.49 s |
 
-Wklejenie trwa kilka milisekund. Pełne pomiary, porównanie dostawców i modeli oraz uzasadnienie
-domyślnych ustawień: [docs/szczegoly.md](docs/szczegoly.md).
+Pasting takes a few milliseconds. Full measurements, a comparison of providers and models, and the
+reasoning behind the defaults (in Polish): [docs/szczegoly.md](docs/szczegoly.md).
 
-## Pobierz
+## Download
 
-Gotowy plik EXE jest w [wydaniach](https://github.com/jarx-dev/HyperRust/releases/latest). Pobierz go
-do zapisywalnego folderu, np. `%LOCALAPPDATA%\HyperRust\`, i uruchom, bez instalacji (Windows 10
-lub 11, WebView2 jest w systemie). Kolejne wydania program pobiera sam, gdy nic nie dyktujesz.
-Plik nie jest podpisany, więc za pierwszym razem Windows może ostrzec przed nieznanym wydawcą:
-„Więcej informacji” → „Uruchom mimo to”.
+The ready-made EXE is on the [releases page](https://github.com/jarx-dev/HyperRust/releases/latest).
+Download it to a writable folder, e.g. `%LOCALAPPDATA%\HyperRust\`, and run it; there is no
+installer (Windows 10 or 11, WebView2 is part of the system). The app downloads later releases
+itself when you are not dictating. The file is not signed, so the first time Windows may warn about
+an unknown publisher: „Więcej informacji” (More info) → „Uruchom mimo to” (Run anyway).
 
-Pierwsze uruchomienie:
+First run:
 
-1. Otworzą się ustawienia. Na stronie „Klucze API” wpisz klucz [ElevenLabs](https://elevenlabs.io)
-   (rozpoznawanie mowy) i [OpenRouter](https://openrouter.ai) (post-processing). Sam OpenRouter też
-   wystarczy, wtedy rozpoznawanie jest wsadowe (~1 s dłużej).
-2. Przytrzymaj `Ctrl+Shift+Space` w dowolnym polu tekstowym, powiedz coś i puść.
-3. Opcjonalnie włącz „Uruchamiaj z Windows” (menu ikony w zasobniku albo strona „Ogólne”).
+1. The settings open. On the „Klucze API” (API keys) page, enter your [ElevenLabs](https://elevenlabs.io)
+   key (speech recognition) and your [OpenRouter](https://openrouter.ai) key (post-processing).
+   OpenRouter alone is enough too, but then recognition is batch (~1 s slower).
+2. Hold `Ctrl+Shift+Space` in any text field, say something and let go.
+3. Optionally turn on „Uruchamiaj z Windows” (Start with Windows), in the tray icon menu or on the
+   „Ogólne” (General) page.
 
-## Prywatność
+## Privacy
 
-- Klucze są wyłącznie w Menedżerze poświadczeń Windows (usługa `HyperRust`), nigdy w pliku
-  ustawień. Każdy klucz trafia tylko do swojego dostawcy.
-- Nagranie idzie do wybranego dostawcy rozpoznawania mowy, a transkrypcja do wybranego wykonawcy
-  post-processingu. Nic więcej nie wychodzi z komputera: historia dyktowań zostaje w
-  `%LOCALAPPDATA%\HyperRust\logs\history.jsonl`, a dziennik aplikacji nie zawiera dyktowanego tekstu.
-- Ustawienia: `%APPDATA%\HyperRust\settings.json`. Historię wyłączysz na stronie „Ogólne”.
+- Keys are stored only in the Windows Credential Manager (service `HyperRust`), never in the
+  settings file. Each key goes only to its own provider.
+- The recording goes to the speech-recognition provider you chose, and the transcript goes to the
+  post-processing backend you chose. Nothing else leaves your computer: dictation history stays in
+  `%LOCALAPPDATA%\HyperRust\logs\history.jsonl`, and the application log contains no dictated text.
+- Settings: `%APPDATA%\HyperRust\settings.json`. You can turn history off on the „Ogólne” (General)
+  page.
 
-## Budowanie
+## Building
 
-Potrzebne: Rust (stable), Node.js 22 i pnpm 10.
+You need Rust (stable), Node.js 22 and pnpm 10.
 
 ```sh
 pnpm install
-pnpm tauri build          # na Windows: src-tauri/target/release/hyperrust.exe
+pnpm tauri build          # on Windows: src-tauri/target/release/hyperrust.exe
 ```
 
-Na Linuksie, krzyżowo pod Windows:
+On Linux, cross-compiling for Windows:
 
 ```sh
 cargo install cargo-xwin
@@ -138,41 +147,42 @@ pnpm build
 cd src-tauri && cargo xwin build --release --target x86_64-pc-windows-msvc --features tauri/custom-protocol
 ```
 
-Zwykły build nie aktualizuje się sam. Wydania na GitHubie buduje GitHub Actions (workflow „Wydanie”,
-uruchamiany ręcznie z `main`): EXE, `latest.json` dla aktualizacji i atestacja pochodzenia pliku.
-Każdy PR przechodzi testy, clippy i build na Windows (workflow „build”).
+A regular build does not update itself. GitHub releases are built by GitHub Actions (the „Wydanie”
+(Release) workflow, run manually from `main`): the EXE, `latest.json` for updates, and a build
+provenance attestation for the file. Every PR goes through tests, clippy and a Windows build (the
+„build” workflow).
 
-Własny serwer w sieci Tailscale (aktualizacje po każdej zmianie, zbieranie historii dyktowań do
-strojenia promptu, codzienny ranking modeli post-processingu) jest opcjonalny:
+Your own server on a Tailscale network (updates after every change, collecting dictation history
+to tune the prompt, a daily ranking of post-processing models) is optional:
 [docs/wlasny-serwer.md](docs/wlasny-serwer.md).
 
-## Struktura
+## Structure
 
 ```
-src-tauri/crates/core   rdzeń bez Tauri: ustawienia, maszyna stanów skrótu, DSP audio, dostawcy STT,
-                        post-processing, słownik, pomiar czasów, aktualizacje, saldo, ranking
-                        (testy na nagranych odpowiedziach w tests/fixtures)
-src-tauri/src           aplikacja: hook klawiatury, mikrofon (cpal), wklejanie, wskaźnik, zasobnik, updater
-src/, *.html            okno ustawień i wskaźnik nagrywania (TypeScript bez frameworka, Vite)
-scripts/                własny serwer (aktualizacje, historia, ranking) i zrzuty do README
+src-tauri/crates/core   core without Tauri: settings, hotkey state machine, audio DSP, STT providers,
+                        post-processing, dictionary, timing measurement, updates, balance, ranking
+                        (tests run on recorded responses in tests/fixtures)
+src-tauri/src           the app: keyboard hook, microphone (cpal), pasting, indicator, tray, updater
+src/, *.html            settings window and recording indicator (TypeScript, no framework, Vite)
+scripts/                your own server (updates, history, ranking) and README screenshots
 ```
 
-- Testy i lint: `cd src-tauri && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings`,
-  frontend: `pnpm build` (z `tsc --noEmit`). Hook `.githooks/pre-push` uruchamia to samo
+- Tests and lint: `cd src-tauri && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings`,
+  frontend: `pnpm build` (with `tsc --noEmit`). The `.githooks/pre-push` hook runs the same
   (`git config core.hooksPath .githooks`).
-- Narzędzia w `src-tauri/crates/core/examples/`: `smoke` (cała ścieżka na pliku WAV), `llm_bench`,
-  `prompt_eval`, `catalog`, `balance`, `ranking`. Opis w [docs/szczegoly.md](docs/szczegoly.md).
-- Ręczny test na Windows: [docs/windows-manual-test.md](docs/windows-manual-test.md).
+- Tools in `src-tauri/crates/core/examples/`: `smoke` (the whole path on a WAV file), `llm_bench`,
+  `prompt_eval`, `catalog`, `balance`, `ranking`. Described in [docs/szczegoly.md](docs/szczegoly.md).
+- Manual test on Windows: [docs/windows-manual-test.md](docs/windows-manual-test.md).
 
-## O autorze
+## About the author
 
-HyperRust napisał **Jarosław Hartwich** ([github.com/jarx-dev](https://github.com/jarx-dev)).
-To samo znajdziesz w programie: strona „Ogólne” → „O programie”.
+HyperRust was written by **Jarosław Hartwich** ([github.com/jarx-dev](https://github.com/jarx-dev)).
+You can find the same in the app: the „Ogólne” (General) page → „O programie” (About).
 
-Jeśli HyperRust Ci się przydaje, możesz [postawić mi kawę](https://buymeacoffee.com/jarx) ☕
+If you find HyperRust useful, you can [buy me a coffee](https://buymeacoffee.com/jarx) ☕
 
-<img src="docs/screenshots/about.png" width="640" alt="Strona Ogólne z sekcją O programie: autor, link do repozytorium i przycisk Postaw mi kawę">
+<img src="docs/screenshots/about.png" width="640" alt="General page with the About section: author, repository link and the Buy me a coffee button">
 
-## Licencja
+## License
 
-[MIT](LICENSE). Kod możesz używać, zmieniać i rozpowszechniać, także komercyjnie.
+[MIT](LICENSE). You may use, modify and distribute the code, including commercially.
