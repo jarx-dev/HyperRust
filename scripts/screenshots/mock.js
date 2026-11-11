@@ -134,7 +134,7 @@
         }
       ],
       "final_timeout_ms": 10000,
-      "language": "pl",
+      "language": EN ? "en" : "pl",
       "models": {
         "elevenlabs": "scribe_v2",
         "elevenlabs_realtime": "scribe_v2_realtime",
@@ -158,7 +158,20 @@
   const day = 86_400_000;
   const sec = (ms) => Math.round(ms / 1000);
 
-  const DICTATIONS = [
+  const DICTATIONS = EN ? [
+    ["Fix the build script in package JSON so it, um, runs the linter first and then the tests.",
+     "Fix the `build` script in `package.json` so it runs the linter first and then the tests.", 6200, 610],
+    ["Add a field for the API key to the settings that shows dots, oh and a show button, save it to the keyring, not to a file.",
+     "Add an API key field to the settings that shows dots, plus a “Show” button. Save it to the keyring, not to a file.", 9400, 720],
+    ["When I run cargo test, the parse manifest test panics with unwrap on none. Find the cause, don't just patch the test.",
+     "When I run `cargo test`, the `parse_manifest` test panics with `unwrap on None`. Find the cause, don't just patch the test.", 8100, 680],
+    ["Should I use tokio mpsc or cross beam channel here? Explain the differences first.",
+     "Should I use `tokio::mpsc` or `crossbeam-channel` here? Explain the differences first.", 4300, 540],
+    ["The recording indicator shows up on the wrong monitor, it should be where the active window is.",
+     "The recording indicator shows up on the wrong monitor, it should be where the active window is.", 5200, 0],
+    ["Make a commit, no, wait, first run clippy with minus D warnings.",
+     "First run `clippy` with `-D warnings`, then make a commit.", 3900, 590],
+  ] : [
     ["Popraw w package JSON skrypt build, żeby, yyy, najpierw uruchamiał linter, a potem testy.",
      "Popraw w `package.json` skrypt `build`, żeby najpierw uruchamiał linter, a potem testy.", 6200, 610],
     ["Dodaj do ustawień pole na klucz API, które pokazuje kropki, no i przycisk pokaż, zapis do keyringa, nie do pliku.",
