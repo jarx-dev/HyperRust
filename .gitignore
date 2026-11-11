@@ -1,0 +1,38 @@
+# The repository is public: never commit addresses of private machines, user paths, keys or
+# real dictations. This machine's own settings live in ~/.config/hyperrust/build.env.
+
+# Build output
+node_modules
+dist
+target
+src-tauri/target
+src-tauri/gen
+
+# Release artefacts and the self-updater's leftovers next to a running EXE
+*.exe
+*.exe.old
+*.update.exe
+*.failed.exe
+*.update-ok
+*.update-skip
+*.part
+*.pdb
+
+# Local settings, secrets, logs, recordings
+.env
+.env.*
+build.env
+*.log
+*.wav
+*.jsonl
+!src-tauri/crates/core/tests/fixtures/*.jsonl
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Agents' local files
+TASKS.md
+.claude/settings.local.json

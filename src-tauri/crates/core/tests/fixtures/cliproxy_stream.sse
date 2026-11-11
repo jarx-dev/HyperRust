@@ -1,0 +1,14 @@
+data: {"id":"gXHQavXdHYbtxN8Pu5CcqAk","object":"chat.completion.chunk","created":0,"model":"gemini-3.1-flash-lite","choices":[{"index":0,"delta":{"role":"assistant","content":null,"reasoning_content":"","tool_calls":null},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gXHQavXdHYbtxN8Pu5CcqAk","object":"chat.completion.chunk","created":0,"model":"gemini-3.1-flash-lite","choices":[{"index":0,"delta":{"role":"assistant","content":"<wyn","reasoning_content":null,"tool_calls":null},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gXHQavXdHYbtxN8Pu5CcqAk","object":"chat.completion.chunk","created":0,"model":"gemini-3.1-flash-lite","choices":[{"index":0,"delta":{"role":"assistant","content":"ik\u003e\nPopraw w pliku package.json skrypt build, żeby","reasoning_content":null,"tool_calls":null},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gXHQavXdHYbtxN8Pu5CcqAk","object":"chat.completion.chunk","created":0,"model":"gemini-3.1-flash-lite","choices":[{"index":0,"delta":{"role":"assistant","content":" uruchamiał najpierw linter, a potem testy. I dodaj do pliku README krótką sekcję","reasoning_content":null,"tool_calls":null},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gXHQavXdHYbtxN8Pu5CcqAk","object":"chat.completion.chunk","created":0,"model":"gemini-3.1-flash-lite","choices":[{"index":0,"delta":{"role":"assistant","content":" o instalacji.\n\u003c/wynik\u003e","reasoning_content":null,"tool_calls":null},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gXHQavXdHYbtxN8Pu5CcqAk","object":"chat.completion.chunk","created":0,"model":"gemini-3.1-flash-lite","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":null,"tool_calls":null},"finish_reason":"stop","native_finish_reason":"stop"}],"usage":{"completion_tokens":52,"total_tokens":595,"prompt_tokens":543}}
+
+data: [DONE]
+

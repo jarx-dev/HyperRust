@@ -1,0 +1,1 @@
+{"text":"I popraw w pliku package.json skrypt build, żeby, no, uruchamiał najpierw testy, a potem, to znaczy nie, najpierw linter, a potem testy. I jeszcze dodaj do README krótką sekcję o instalacji.","usage":{"seconds":13,"cost":0.000975}}

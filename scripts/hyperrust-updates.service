@@ -1,0 +1,25 @@
+# Update server for HyperRust's self-updater: serves ~/hyperrust-updates
+# (written by scripts/publish-dev.sh) on the Tailscale address only.
+# The address is this machine's own: HYPERRUST_UPDATE_BIND in
+# ~/.config/hyperrust/build.env (never in the repository).
+#
+#   install:  scripts/install-update-server.sh
+#   status:   systemctl --user status hyperrust-updates
+[Unit]
+Description=HyperRust update server (Tailscale)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Environment=HYPERRUST_UPDATE_DIR=%h/hyperrust-updates
+Environment=HYPERRUST_UPDATE_PORT=8790
+EnvironmentFile=%h/.config/hyperrust/build.env
+ExecStart=/usr/bin/python3 -m http.server ${HYPERRUST_UPDATE_PORT} --bind ${HYPERRUST_UPDATE_BIND} --directory ${HYPERRUST_UPDATE_DIR}
+# The Tailscale address may appear after boot; retry until it can be bound.
+Restart=always
+RestartSec=10
+NoNewPrivileges=yes
+MemoryMax=128M
+
+[Install]
+WantedBy=default.target

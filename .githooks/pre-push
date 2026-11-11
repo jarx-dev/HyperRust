@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# pre-push: bramka jakości HyperRust (te same kontrole co job `checks` w CI).
+# Włączenie: git config core.hooksPath "$(git rev-parse --show-toplevel)/.githooks"
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+if [[ -f package.json ]]; then
+  echo "[pre-push] typecheck frontendu"
+  pnpm exec tsc --noEmit
+fi
+
+if [[ -f src-tauri/Cargo.toml ]]; then
+  echo "[pre-push] cargo test --workspace"
+  (cd src-tauri && cargo test --workspace --locked --quiet)
+  echo "[pre-push] cargo clippy"
+  (cd src-tauri && cargo clippy --workspace --all-targets --locked -- -D warnings)
+fi
+
+echo "[pre-push] OK"

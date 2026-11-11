@@ -1,0 +1,26 @@
+# Daily post-processing model ranking (src-tauri/crates/core/examples/ranking.rs):
+# tests new OpenRouter models on the dictation set and publishes ranking.json
+# next to the update manifest (served by hyperrust-updates.service).
+#
+#   install:  scripts/install-ranking.sh
+#   run now:  systemctl --user start hyperrust-ranking
+#   log:      journalctl --user -u hyperrust-ranking
+#   history:  ~/hyperrust-ranking/measurements.jsonl
+[Unit]
+Description=HyperRust post-processing model ranking
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=HYPERRUST_RANKING_DIR=%h/hyperrust-ranking
+Environment=HYPERRUST_RANKING_REF=origin/main
+Environment=PATH=%h/.cargo/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Test with the code merged into main (its agent prompt): the checkout follows
+# that ref before every run.
+ExecStartPre=/usr/bin/git -C ${HYPERRUST_RANKING_DIR}/src fetch -q origin
+ExecStartPre=/usr/bin/git -C ${HYPERRUST_RANKING_DIR}/src checkout -q --detach ${HYPERRUST_RANKING_REF}
+ExecStart=/bin/bash ${HYPERRUST_RANKING_DIR}/src/scripts/ranking-nuc.sh
+Nice=15
+IOSchedulingClass=idle
+TimeoutStartSec=4h

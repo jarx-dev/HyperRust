@@ -1,0 +1,12 @@
+# Runs hyperrust-ranking.service once a day; a run missed while the machine was
+# off happens at the next boot.
+[Unit]
+Description=HyperRust post-processing model ranking, daily
+
+[Timer]
+OnCalendar=*-*-* 05:40
+RandomizedDelaySec=20min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

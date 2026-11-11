@@ -1,0 +1,455 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font: 13px/1.2 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  user-select: none;
+}
+
+/* The window is larger than the pill so the glow and the entrance motion are not clipped. */
+.root {
+  --lvl: 0;
+  --accent: #ff5a1f;
+  --accent-2: #e5195f;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.root.processing {
+  --accent: #8b5cf6;
+  --accent-2: #3b82f6;
+}
+
+.root.done {
+  --accent: #22c55e;
+  --accent-2: #14b8a6;
+}
+
+.root.error {
+  --accent: #ef4444;
+  --accent-2: #f97316;
+}
+
+/* Nothing stale may be painted when the hidden window is shown again. */
+.root.hidden .shell {
+  opacity: 0;
+}
+
+.shell {
+  position: relative;
+  width: 310px;
+  height: 44px;
+}
+
+.glow {
+  position: absolute;
+  inset: 6px 18px;
+  border-radius: 22px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  filter: blur(9px);
+  opacity: 0.35;
+  transition: opacity 0.3s;
+}
+
+.recording .glow {
+  opacity: calc(0.18 + var(--lvl) * 0.6);
+  transition: opacity 90ms linear;
+}
+
+.processing .glow {
+  animation: breathe 1.6s ease-in-out infinite;
+}
+
+.done .glow,
+.error .glow {
+  opacity: 0.6;
+}
+
+.pill {
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px 0 13px;
+  border: 1px solid transparent;
+  border-radius: 22px;
+  color: #f4f4f5;
+  background:
+    linear-gradient(rgba(22, 22, 26, 0.94), rgba(22, 22, 26, 0.94)) padding-box,
+    linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--accent) 75%, transparent),
+        rgba(255, 255, 255, 0.1) 45%,
+        color-mix(in srgb, var(--accent-2) 65%, transparent)
+      )
+      border-box;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+
+.error .pill {
+  animation: shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) 0.05s both;
+}
+
+/* Clicking the recording pill finishes the dictation (src/overlay.ts). */
+.recording .pill {
+  cursor: pointer;
+  transition:
+    filter 0.15s,
+    transform 0.1s;
+}
+
+.recording .pill:hover:not(:has(.mode:hover)) {
+  filter: brightness(1.2);
+}
+
+.recording .pill:active:not(:has(.mode:active)) {
+  transform: scale(0.97);
+}
+
+/* The mode name switches to the next mode instead (src/overlay.ts). */
+.mode {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.mode[hidden],
+.label:empty {
+  display: none;
+}
+
+.mode:hover {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.mode:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mode span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mode svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+
+/* Status orb: recording dot, spinner, check mark or exclamation mark. */
+.orb {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+}
+
+.orb > * {
+  grid-area: 1 / 1;
+}
+
+.core {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  transition:
+    background-color 0.25s,
+    box-shadow 0.25s,
+    transform 0.25s;
+}
+
+.recording .core {
+  background: #ff3b3b;
+  box-shadow: 0 0 8px #ff3b3b;
+}
+
+.processing .core {
+  transform: scale(0.45);
+}
+
+.done .core,
+.error .core {
+  transform: scale(1.6);
+  animation: pop 0.38s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+
+.halo {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 59, 59, 0.6), rgba(255, 59, 59, 0) 70%);
+  opacity: 0;
+  transform: scale(calc(0.7 + var(--lvl) * 1.1));
+  transition:
+    transform 90ms linear,
+    opacity 0.2s;
+}
+
+.recording .halo {
+  opacity: 1;
+}
+
+.ripple {
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid #ff3b3b;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.recording .ripple {
+  animation: ripple 1.6s ease-out infinite;
+}
+
+.done .ripple {
+  border-color: var(--accent);
+  animation: burst 0.6s ease-out;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: conic-gradient(transparent 0 20%, var(--accent) 70%, var(--accent-2));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.processing .spinner {
+  opacity: 1;
+  animation: spin 0.8s linear infinite;
+}
+
+.mark {
+  /* Positioned so it paints above the scaled (transformed) core. */
+  position: relative;
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.check path {
+  stroke-dasharray: 12;
+  stroke-dashoffset: 12;
+}
+
+.done .check,
+.error .bang {
+  opacity: 1;
+}
+
+.done .check path {
+  animation: draw 0.32s 0.12s ease-out forwards;
+}
+
+/* Level meter: the newest level sits in the middle bar and ripples outwards. */
+.wave {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 63px;
+  height: 26px;
+  overflow: hidden;
+  transition:
+    width 0.28s cubic-bezier(0.3, 0.7, 0.2, 1),
+    margin 0.28s cubic-bezier(0.3, 0.7, 0.2, 1),
+    opacity 0.2s;
+}
+
+.done .wave,
+.error .wave {
+  width: 0;
+  margin-right: -10px;
+  opacity: 0;
+}
+
+.wave i {
+  flex: none;
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: color-mix(in oklab, var(--accent) calc(100% - var(--i) * 8%), var(--accent-2));
+  transform: scaleY(0.14);
+  transition:
+    transform 90ms ease-out,
+    background-color 0.35s;
+}
+
+.processing .wave i {
+  animation: think 1.05s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -80ms);
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.processing .label {
+  color: transparent;
+  background: linear-gradient(90deg, #a1a1aa 0 35%, #fff 50%, #a1a1aa 65% 100%) 0 0 / 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmer 1.5s linear infinite;
+}
+
+.error .label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  white-space: normal;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+@keyframes ripple {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.3);
+  }
+}
+
+@keyframes burst {
+  from {
+    opacity: 0.8;
+    transform: scale(1.4);
+  }
+  to {
+    opacity: 0;
+    transform: scale(3);
+  }
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.5);
+  }
+  60% {
+    transform: scale(1.85);
+  }
+  to {
+    transform: scale(1.6);
+  }
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes think {
+  0%,
+  100% {
+    transform: scaleY(0.2);
+  }
+  50% {
+    transform: scaleY(0.85);
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before,
+  .root *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .done .check path {
+    stroke-dashoffset: 0;
+  }
+}

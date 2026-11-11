@@ -1,0 +1,31 @@
+# Realistyczne transkrypcje dyktowania dla agenta AI (polski, styl Scribe),
+# do porównywania promptów post-processingu: `examples/prompt_eval.rs`.
+# Wpisy rozdziela linia `---`; linie zaczynające się od `#` są pomijane.
+I popraw w pliku package JSON skrypt build, żeby no uruchamiał najpierw testy, a potem to znaczy nie, najpierw linter, a potem testy. I jeszcze dodaj do readme krótką sekcję o instalacji
+---
+Dobra, to teraz tak, chciałbym żebyś, yyy, w tym komponencie od ustawień, no tam gdzie jest ten formularz, dodał takie pole na, na klucz API, wiesz, żeby się nie wyświetlał jawnie tylko jako kropki, no i żeby był przycisk pokaż. I to pole jakby powinno się zapisywać, ale nie do pliku, tylko do keyringa, bo w pliku to nie, nie chcę mieć sekretów. Aha i jeszcze walidacja, żeby nie dało się zapisać pustego.
+---
+Mam błąd w testach, jak odpalam kargo test to wywala się test parse manifest z panikiem że unwrap on none. Sprawdź czemu, podejrzewam że to przez to pole sajz które jest opcjonalne. Nie poprawiaj na ślepo testu tylko znajdź przyczynę.
+---
+Jak myślisz czy lepiej użyć tu tokio mpsc czy kros bim channel? Nie zmieniaj jeszcze kodu, najpierw mi wytłumacz różnice i co będzie szybsze w naszym przypadku.
+---
+Zrób commit, a nie, czekaj, najpierw odpal klipi z minus de warnings, jak przejdzie to zrób commit z opisem po polsku i wypchnij na gałąź feat dictation app, ale nie na main, broń boże nie na main.
+---
+Słuchaj, chodzi o to, że ten overlay, ten wskaźnik nagrywania, on się pojawia na złym monitorze. Znaczy mam dwa monitory i on się pojawia zawsze na głównym, a ja pracuję na drugim, no i to jest wkurzające, bo nie widzę czy nagrywa. Powinien się pojawiać na tym monitorze, gdzie jest aktywne okno. W sumie to samo jest z oknem ustawień, ale to mniej ważne, to możesz zostawić na potem. Najważniejszy jest overlay.
+---
+Napisz w README sekcję wymagania, nowa linia, myślnik Windows 10 albo 11, nowa linia, myślnik WebView2, nowa linia, myślnik klucz ElevenLabs.
+---
+napraw literówkę w nagłówku strony głównej
+---
+Zaktualizuj tauri do wersji dwa dwanaście i sprawdź czy plugin single instance dalej działa, bo w changelogu tauri chyba coś zmieniali w API emitera. Jakby coś nie działało to nie kombinuj, tylko napisz mi co się zmieniło.
+---
+W tej funkcji od liczenia czasu, no tej co zwraca ile minęło od startu, zamień to na SystemTime, a właściwie nie, zostaw Instant, tylko dodaj drugą funkcję, która zwraca uniks timestamp w milisekundach. Testów nie ruszaj.
+---
+Przejrzyj pul rikłest od Marka, ten z poprawkami do logowania. Głównie chodzi mi o bezpieczeństwo, czy nigdzie nie logujemy tokenów albo haseł. Jak coś znajdziesz, to podaj numery linii. Stylu kodu nie komentuj, to nieważne.
+---
+ile mamy w ogóle testów w tym projekcie i czy któryś jest oznaczony jako ignorowany? nic nie zmieniaj, tylko mi powiedz
+---
+# Wypowiedzi bez polecenia: mają wyjść poprawione, nie zamienione w polecenie ani skomentowane.
+Sprawdzam, czy mikrofon działa, raz, dwa, trzy, no i chyba działa.
+---
+No dobra, to jest taki test, yyy, nowego programu do dyktowania, zobaczymy jak to wyjdzie.

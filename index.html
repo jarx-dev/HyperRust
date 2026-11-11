@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HyperRust — ustawienia</title>
+    <link rel="stylesheet" href="/src/settings.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="side">
+        <div class="brand">
+          <svg class="logo" viewBox="0 0 1024 1024" aria-hidden="true">
+            <defs>
+              <linearGradient id="logo-bg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#ffb01f" />
+                <stop offset=".4" stop-color="#ff5a1f" />
+                <stop offset=".78" stop-color="#e5195f" />
+                <stop offset="1" stop-color="#8b2bd9" />
+              </linearGradient>
+            </defs>
+            <rect x="32" y="32" width="960" height="960" rx="236" fill="url(#logo-bg)" />
+            <path d="M208 336 L392 512 L208 688" fill="none" stroke="#fff" stroke-width="116" stroke-linecap="round" stroke-linejoin="round" />
+            <g fill="#fff">
+              <rect x="504" y="400" width="92" height="224" rx="46" />
+              <rect x="644" y="278" width="92" height="468" rx="46" />
+              <rect x="784" y="366" width="92" height="292" rx="46" />
+            </g>
+          </svg>
+          <div>
+            <strong>HyperRust</strong>
+            <span id="build" class="muted"></span>
+          </div>
+        </div>
+        <nav aria-label="Sekcje">
+          <button type="button" class="nav" data-page="overview">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></svg>
+            Przegląd
+          </button>
+          <button type="button" class="nav" data-page="modes">
+            <svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
+            Tryby
+          </button>
+          <button type="button" class="nav" data-page="history">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+            Historia
+          </button>
+          <button type="button" class="nav" data-page="dictionary">
+            <svg viewBox="0 0 24 24"><path d="M4 19.5V5a2 2 0 0 1 2-2h14v16H6.5a2.5 2.5 0 0 0 0 5H20" /><path d="M9 8h7M9 12h5" /></svg>
+            Słownik
+          </button>
+          <p class="nav-group">Ustawienia</p>
+          <button type="button" class="nav" data-page="shortcuts">
+            <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M7 15h10" /></svg>
+            Skróty
+          </button>
+          <button type="button" class="nav" data-page="audio">
+            <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 17v5" /></svg>
+            Dźwięk i mikrofon
+          </button>
+          <button type="button" class="nav" data-page="paste">
+            <svg viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /></svg>
+            Wklejanie
+          </button>
+          <button type="button" class="nav" data-page="stt">
+            <svg viewBox="0 0 24 24"><path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3" /></svg>
+            Rozpoznawanie mowy
+          </button>
+          <button type="button" class="nav" data-page="llm">
+            <svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" /><path d="M19 3v4M17 5h4" /></svg>
+            Post-processing
+          </button>
+          <button type="button" class="nav" data-page="keys">
+            <svg viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5" /><path d="M11.5 11.5 21 2M18 5l3 3M15 8l2 2" /></svg>
+            Klucze API
+          </button>
+          <button type="button" class="nav" data-page="general">
+            <svg viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1" /><circle cx="15" cy="6" r="2" /><circle cx="9" cy="12" r="2" /><circle cx="17" cy="18" r="2" /></svg>
+            Ogólne
+          </button>
+        </nav>
+        <p class="side-foot"><kbd id="side-hotkey"></kbd> przytrzymaj, mów, puść</p>
+      </aside>
+
+      <main>
+        <!-- ===== Przegląd ===== -->
+        <section class="page wide" data-page="overview" aria-labelledby="h-overview">
+          <div class="page-head">
+            <div>
+              <h1 id="h-overview">Przegląd</h1>
+              <p class="muted" id="ov-status">Pobieranie salda…</p>
+            </div>
+            <button type="button" id="ov-refresh">Odśwież</button>
+          </div>
+          <div class="tiles">
+            <button type="button" class="tile" data-goto="shortcuts"><span>Skrót</span><strong id="ov-hotkey"></strong><small id="ov-hotkey-sub"></small></button>
+            <button type="button" class="tile" data-goto="modes"><span>Tryb</span><strong id="ov-mode"></strong><small id="ov-mode-sub"></small></button>
+            <button type="button" class="tile" data-goto="stt"><span>Mowa → tekst</span><strong id="ov-stt"></strong><small id="ov-stt-sub"></small></button>
+            <button type="button" class="tile" data-goto="llm"><span>Post-processing</span><strong id="ov-llm"></strong><small id="ov-llm-sub"></small></button>
+          </div>
+
+          <h2>Saldo</h2>
+          <div class="balances" id="balances"></div>
+          <p class="hint" id="balance-note"></p>
+
+          <h2>Nowe modele</h2>
+          <div class="balances" id="news"></div>
+          <p class="hint" id="news-note"></p>
+
+          <h2>Zużycie na tym komputerze</h2>
+          <div class="card pad">
+            <div class="stats" id="usage-stats"></div>
+            <div class="chart" id="usage-chart" role="img"></div>
+            <div class="chart-axis"><span id="chart-from"></span><span>minuty nagrań dziennie, 30 dni</span><span>dziś</span></div>
+          </div>
+
+          <h2>Czasy ostatnich dyktowań</h2>
+          <div class="card pad">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Wynik</th><th>Tryb</th><th>STT</th><th>Na żywo</th><th>Nagranie</th><th>→ tekst</th><th>LLM</th><th>→ wklejenie</th><th>Znaki</th><th>Koszt</th>
+                  </tr>
+                </thead>
+                <tbody id="timings"></tbody>
+              </table>
+            </div>
+            <p class="hint">Liczone od puszczenia klawisza. Koszt: kwota, którą podał dostawca (OpenRouter), albo „≈” — szacunek z cennika według długości nagrania; „abon.” to post-processing w abonamencie (CLIProxy, CLI), „?” — część bez ceny. Podział widać po najechaniu na koszt. Pełny log: <code>timings.jsonl</code> w folderze logów.</p>
+          </div>
+        </section>
+
+        <!-- ===== Tryby ===== -->
+        <section class="page" data-page="modes" aria-labelledby="h-modes" hidden>
+          <div class="page-head">
+            <div>
+              <h1 id="h-modes">Tryby</h1>
+              <p class="muted">Tryb decyduje, co dzieje się z tekstem po rozpoznaniu mowy. Aktywny tryb przełączysz też w menu ikony w zasobniku.</p>
+            </div>
+            <button type="button" id="add-mode">Dodaj tryb</button>
+          </div>
+          <div id="modes"></div>
+        </section>
+
+        <!-- ===== Historia ===== -->
+        <section class="page" data-page="history" aria-labelledby="h-history" hidden>
+          <div class="page-head">
+            <div>
+              <h1 id="h-history">Historia</h1>
+              <p class="muted" id="hist-status"></p>
+            </div>
+            <input type="search" id="hist-search" placeholder="Szukaj w historii" aria-label="Szukaj w historii" />
+          </div>
+          <div id="history-list"></div>
+        </section>
+
+        <!-- ===== Słownik ===== -->
+        <section class="page" data-page="dictionary" aria-labelledby="h-dictionary" hidden>
+          <div class="page-head">
+            <div>
+              <h1 id="h-dictionary">Słownik</h1>
+              <p class="muted">Nazwy, które rozpoznawanie mowy przekręca. Każda linia to poprawna nazwa, a po znaku „=” formy, w których ją słychać, rozdzielone przecinkami.</p>
+            </div>
+          </div>
+          <textarea id="stt_dictionary" rows="18" spellcheck="false" aria-label="Słownik" aria-describedby="dictionary-hint" placeholder="Claude Code = Cloud Code, CloudCode"></textarea>
+          <p class="hint" id="dictionary-hint">Formy po „=” są zamieniane na poprawną nazwę w każdym trybie, także bez AI, bez względu na wielkość liter i z zachowaniem krótkiej końcówki („Kodeksa” → „Codexa”). Tekst w `backtickach`, adresy i ścieżki zostają bez zmian. Wszystkie nazwy trafiają też do promptu post-processingu, a przy ElevenLabs jako słowa kluczowe do rozpoznawania (dopłata 20% na żywo, 0,05 $/h wsadowo; brane jest pierwsze 50 nazw). Linia z samą nazwą, bez „=”, tylko podpowiada ją modelom.</p>
+        </section>
+
+        <!-- ===== Skróty ===== -->
+        <section class="page" data-page="shortcuts" aria-labelledby="h-shortcuts" hidden>
+          <div class="page-head"><h1 id="h-shortcuts">Skróty</h1></div>
+          <div class="card list">
+            <div class="set">
+              <label class="set-text" for="hotkey"><b>Skrót dyktowania</b><small>Sam modyfikator (np. RightCtrl) nie blokuje innych skrótów.</small></label>
+              <div class="ctl">
+                <input id="hotkey" class="kbd" readonly />
+                <button type="button" id="hotkey-capture">Zmień</button>
+              </div>
+            </div>
+            <div class="set">
+              <label class="set-text" for="hotkey_mode"><b>Działanie skrótu</b></label>
+              <select id="hotkey_mode">
+                <option value="auto">Przytrzymaj albo stuknij dwa razy</option>
+                <option value="hold">Tylko przytrzymanie</option>
+                <option value="toggle">Naciśnij — start, ponownie — koniec</option>
+              </select>
+            </div>
+            <div class="set">
+              <span class="set-text"><b>Anulowanie</b><small>Escape w trakcie nagrania odrzuca dyktowanie, nic się nie wkleja.</small></span>
+              <kbd>Esc</kbd>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Dźwięk i mikrofon ===== -->
+        <section class="page" data-page="audio" aria-labelledby="h-audio" hidden>
+          <div class="page-head"><h1 id="h-audio">Dźwięk i mikrofon</h1></div>
+          <div class="card list">
+            <div class="set">
+              <label class="set-text" for="audio_device"><b>Mikrofon</b></label>
+              <select id="audio_device"><option value="">Domyślny systemowy</option></select>
+            </div>
+            <div class="set">
+              <label class="set-text" for="audio_keep_warm"><b>Mikrofon gotowy w tle</b><small>Natychmiastowy start bez uciętego pierwszego słowa. Windows pokazuje wtedy stale, że mikrofon jest używany, ale dźwięk zostaje w krótkim buforze w pamięci, dopóki nie naciśniesz skrótu.</small></label>
+              <input type="checkbox" class="switch" role="switch" id="audio_keep_warm" />
+            </div>
+            <div class="set">
+              <label class="set-text" for="audio_cues"><b>Piknięcia</b><small>Krótki sygnał na początku i na końcu nagrania.</small></label>
+              <input type="checkbox" class="switch" role="switch" id="audio_cues" />
+            </div>
+          </div>
+          <details class="adv">
+            <summary>Zaawansowane</summary>
+            <div class="card list">
+              <div class="set">
+                <label class="set-text" for="audio_preroll_ms"><b>Bufor sprzed naciśnięcia</b><small>Tylko przy mikrofonie gotowym w tle.</small></label>
+                <span class="unit"><input id="audio_preroll_ms" type="number" min="0" max="2000" step="50" />ms</span>
+              </div>
+              <div class="set">
+                <label class="set-text" for="audio_min_duration_ms"><b>Minimalna długość nagrania</b><small>Krótsze naciśnięcia są traktowane jak przypadkowe.</small></label>
+                <span class="unit"><input id="audio_min_duration_ms" type="number" min="0" step="50" />ms</span>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <!-- ===== Wklejanie ===== -->
+        <section class="page" data-page="paste" aria-labelledby="h-paste" hidden>
+          <div class="page-head"><h1 id="h-paste">Wklejanie</h1></div>
+          <div class="card list">
+            <div class="set">
+              <label class="set-text" for="paste_auto_paste"><b>Wklejaj do aktywnego okna</b><small>Wyłączone: tekst trafia tylko do schowka.</small></label>
+              <input type="checkbox" class="switch" role="switch" id="paste_auto_paste" />
+            </div>
+            <div class="set">
+              <label class="set-text" for="paste_restore_clipboard"><b>Przywracaj schowek</b><small>Po wklejeniu w schowku wraca to, co było w nim wcześniej.</small></label>
+              <input type="checkbox" class="switch" role="switch" id="paste_restore_clipboard" />
+            </div>
+          </div>
+          <details class="adv">
+            <summary>Zaawansowane</summary>
+            <div class="card list">
+              <div class="set">
+                <label class="set-text" for="paste_restore_delay_ms"><b>Przywrócenie schowka po</b></label>
+                <span class="unit"><input id="paste_restore_delay_ms" type="number" min="100" step="100" />ms</span>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <!-- ===== Rozpoznawanie mowy ===== -->
+        <section class="page" data-page="stt" aria-labelledby="h-stt" hidden>
+          <div class="page-head"><h1 id="h-stt">Rozpoznawanie mowy</h1></div>
+          <div class="card list">
+            <div class="set">
+              <label class="set-text" for="stt_provider"><b>Dostawca</b><small id="stt-in-use"></small></label>
+              <div class="ctl">
+                <button type="button" class="badge" id="stt-key"></button>
+                <select id="stt_provider">
+                  <option value="elevenlabs">ElevenLabs (Scribe)</option>
+                  <option value="xai">xAI (Grok)</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="openrouter">OpenRouter (tylko wsadowo)</option>
+                </select>
+              </div>
+            </div>
+            <div class="set">
+              <label class="set-text" for="stt_streaming"><b>Na żywo (realtime)</b><small>Dźwięk idzie do dostawcy w trakcie mówienia, więc tekst jest gotowy zaraz po puszczeniu klawisza.</small></label>
+              <input type="checkbox" class="switch" role="switch" id="stt_streaming" />
+            </div>
+            <!-- Each model is a picker over a hidden name field (shown for "Wpisz inną nazwę…"). -->
+            <div class="set" data-stt="elevenlabs">
+              <label class="set-text" for="m_elevenlabs_realtime_pick"><b>Model na żywo</b></label>
+              <div class="ctl"><input id="m_elevenlabs_realtime" hidden spellcheck="false" placeholder="nazwa modelu" aria-label="Nazwa modelu na żywo" /><select id="m_elevenlabs_realtime_pick"></select></div>
+            </div>
+            <div class="set" data-stt="elevenlabs">
+              <label class="set-text" for="m_elevenlabs_pick"><b>Model wsadowy</b><small>Także awaryjnie, gdy tryb na żywo zawiedzie.</small></label>
+              <div class="ctl"><input id="m_elevenlabs" hidden spellcheck="false" placeholder="nazwa modelu" aria-label="Nazwa modelu wsadowego" /><select id="m_elevenlabs_pick"></select></div>
+            </div>
+            <div class="set" data-stt="xai">
+              <label class="set-text" for="m_xai_pick"><b>Model</b><small>Ten sam na żywo i wsadowo.</small></label>
+              <div class="ctl"><input id="m_xai" hidden spellcheck="false" placeholder="nazwa modelu" aria-label="Nazwa modelu" /><select id="m_xai_pick"></select></div>
+            </div>
+            <div class="set" data-stt="openai">
+              <label class="set-text" for="m_openai_realtime_pick"><b>Model na żywo</b></label>
+              <div class="ctl"><input id="m_openai_realtime" hidden spellcheck="false" placeholder="nazwa modelu" aria-label="Nazwa modelu na żywo" /><select id="m_openai_realtime_pick"></select></div>
+            </div>
+            <div class="set" data-stt="openai">
+              <label class="set-text" for="m_openai_pick"><b>Model wsadowy</b><small>Także awaryjnie, gdy tryb na żywo zawiedzie.</small></label>
+              <div class="ctl"><input id="m_openai" hidden spellcheck="false" placeholder="nazwa modelu" aria-label="Nazwa modelu wsadowego" /><select id="m_openai_pick"></select></div>
+            </div>
+            <div class="set" data-stt="openrouter">
+              <label class="set-text" for="m_openrouter_pick"><b>Model</b><small>Katalog OpenRouter: modele wielu firm, od najnowszych.</small></label>
+              <div class="ctl"><input id="m_openrouter" hidden spellcheck="false" placeholder="nazwa modelu" aria-label="Nazwa modelu" /><select id="m_openrouter_pick"></select></div>
+            </div>
+            <div class="set">
+              <label class="set-text" for="stt_language"><b>Język</b><small>Kod ISO, np. pl. Puste pole: rozpoznawany automatycznie.</small></label>
+              <input id="stt_language" class="short" maxlength="8" placeholder="auto" />
+            </div>
+          </div>
+          <p class="hint" id="stt-models-status"></p>
+          <details class="adv">
+            <summary>Zaawansowane</summary>
+            <div class="card list">
+              <div class="set">
+                <label class="set-text" for="stt_final_timeout_ms"><b>Limit czasu na wynik</b></label>
+                <span class="unit"><input id="stt_final_timeout_ms" type="number" min="1000" step="500" />ms</span>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <!-- ===== Post-processing ===== -->
+        <section class="page" data-page="llm" aria-labelledby="h-llm" hidden>
+          <div class="page-head">
+            <div>
+              <h1 id="h-llm">Post-processing</h1>
+              <p class="muted">Model AI, który porządkuje tekst w trybach z AI. Tryb może mieć własny model.</p>
+            </div>
+          </div>
+          <div class="card list">
+            <div class="set">
+              <label class="set-text" for="llm_backend"><b>Wykonawca</b></label>
+              <div class="ctl">
+                <button type="button" class="badge" id="llm-key"></button>
+                <select id="llm_backend">
+                  <option value="open_ai_compatible">CLIProxy (subskrypcje)</option>
+                  <option value="open_router">OpenRouter (płatne za tokeny)</option>
+                  <option value="claude_cli">claude -p (Claude Code)</option>
+                  <option value="codex_cli">codex exec (Codex CLI)</option>
+                </select>
+              </div>
+            </div>
+            <div class="set" data-backend="open_ai_compatible open_router">
+              <label class="set-text" for="llm_model_pick"><b>Model</b><small id="models-status"></small></label>
+              <div class="ctl">
+                <select id="llm_model_pick"></select>
+                <button type="button" class="icon" id="models-refresh" title="Pobierz listę modeli ponownie" aria-label="Odśwież listę modeli">
+                  <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg>
+                </button>
+              </div>
+            </div>
+            <div class="set" id="llm_model_custom_row" hidden>
+              <label class="set-text" for="llm_model_custom"><b>Nazwa modelu</b></label>
+              <input id="llm_model_custom" placeholder="np. claude-haiku-5-5" spellcheck="false" autocomplete="off" />
+            </div>
+            <div class="set" data-backend="claude_cli codex_cli">
+              <label class="set-text" for="llm_cli_model"><b>Model CLI</b><small>Puste pole: domyślny model CLI.</small></label>
+              <input id="llm_cli_model" spellcheck="false" />
+            </div>
+          </div>
+          <h2 id="ranking-title">Ranking modeli</h2>
+          <div class="card pad" id="ranking-card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th><th>Model</th><th>Ocena</th><th>Czas</th><th>Za 1000 dyktowań</th><th>Test</th><th></th>
+                  </tr>
+                </thead>
+                <tbody id="ranking"></tbody>
+              </table>
+            </div>
+            <button type="button" class="link" id="ranking-more" hidden></button>
+            <p class="hint" id="ranking-status" role="status"></p>
+            <p class="hint" id="ranking-note"></p>
+          </div>
+          <details class="adv">
+            <summary>Zaawansowane</summary>
+            <div class="card list">
+              <div class="set" data-backend="open_ai_compatible">
+                <label class="set-text" for="llm_base_url"><b>Adres endpointu</b></label>
+                <input id="llm_base_url" placeholder="http://localhost:8317/v1" spellcheck="false" />
+              </div>
+              <div class="set" data-backend="open_ai_compatible open_router">
+                <label class="set-text" for="llm_reasoning_effort"><b>Reasoning effort</b><small>Puste: nie wysyłaj. Dla Haiku zostaw puste; porządkowanie i tak idzie bez myślenia. „none” przyspiesza tryb agenta (~1,5 s zamiast ~3 s) kosztem wierności.</small></label>
+                <input id="llm_reasoning_effort" class="short" placeholder="np. low" spellcheck="false" />
+              </div>
+              <div class="set">
+                <label class="set-text" for="llm_timeout_ms"><b>Limit czasu</b></label>
+                <span class="unit"><input id="llm_timeout_ms" type="number" min="1000" step="1000" />ms</span>
+              </div>
+            </div>
+          </details>
+          <!-- The saved model per backend; the picker above edits the active one. -->
+          <input type="hidden" id="llm_model" />
+          <input type="hidden" id="llm_openrouter_model" />
+        </section>
+
+        <!-- ===== Klucze API ===== -->
+        <section class="page" data-page="keys" aria-labelledby="h-keys" hidden>
+          <div class="page-head">
+            <div>
+              <h1 id="h-keys">Klucze API</h1>
+              <p class="muted">Klucze trafiają wyłącznie do Menedżera poświadczeń Windows, nigdy do pliku ustawień.</p>
+            </div>
+          </div>
+          <div class="card list" id="secrets"></div>
+        </section>
+
+        <!-- ===== Ogólne ===== -->
+        <section class="page" data-page="general" aria-labelledby="h-general" hidden>
+          <div class="page-head"><h1 id="h-general">Ogólne</h1></div>
+          <div class="card list">
+            <div class="set">
+              <label class="set-text" for="autostart"><b>Uruchamiaj z Windows</b><small>Wpis w autostarcie Twojego konta, bez uprawnień administratora.</small></label>
+              <input type="checkbox" class="switch" role="switch" id="autostart" />
+            </div>
+            <div class="set">
+              <label class="set-text" for="upd_enabled"><b>Automatyczne aktualizacje</b><small id="update-status"></small></label>
+              <div class="ctl">
+                <button type="button" id="update-check">Sprawdź</button>
+                <input type="checkbox" class="switch" role="switch" id="upd_enabled" />
+              </div>
+            </div>
+            <div class="set">
+              <label class="set-text" for="hist_enabled"><b>Zapisuj historię dyktowań</b><small>Ostatnie 300 dyktowań na tym komputerze, widoczne na stronie Historia.</small></label>
+              <input type="checkbox" class="switch" role="switch" id="hist_enabled" />
+            </div>
+            <div class="set">
+              <label class="set-text" for="keep_connections_warm"><b>Utrzymuj połączenia z dostawcami</b><small>Szybsza pierwsza odpowiedź po przerwie.</small></label>
+              <input type="checkbox" class="switch" role="switch" id="keep_connections_warm" />
+            </div>
+            <div class="set">
+              <span class="set-text"><b>Logi</b><small id="logs-dir"></small></span>
+              <button type="button" id="open-logs">Otwórz folder</button>
+            </div>
+          </div>
+          <h2>O programie</h2>
+          <div class="card list">
+            <div class="set">
+              <span class="set-text"><b>Autor</b><small>Jarosław Hartwich, licencja MIT</small></span>
+              <button type="button" class="link" data-link="repo">github.com/jarx-dev/HyperRusts</button>
+            </div>
+            <div class="set">
+              <span class="set-text"><b>Postaw mi kawę</b><small>Jeśli HyperRust Ci się przydaje, możesz wesprzeć jego rozwój.</small></span>
+              <button type="button" data-link="coffee">Postaw mi kawę ☕</button>
+            </div>
+          </div>
+          <details class="adv">
+            <summary>Zaawansowane</summary>
+            <div class="card list">
+              <div class="set">
+                <label class="set-text" for="upd_url"><b>Serwer aktualizacji</b></label>
+                <input id="upd_url" spellcheck="false" />
+              </div>
+              <div class="set">
+                <label class="set-text" for="upd_interval_s"><b>Sprawdzaj co</b></label>
+                <span class="unit"><input id="upd_interval_s" type="number" min="15" step="15" />s</span>
+              </div>
+              <div class="set">
+                <label class="set-text" for="hist_upload_url"><b>Serwer historii</b><small>Puste pole: historia tylko na tym komputerze.</small></label>
+                <input id="hist_upload_url" spellcheck="false" />
+              </div>
+            </div>
+          </details>
+        </section>
+      </main>
+    </div>
+
+    <footer>
+      <span id="save-status" role="status" aria-live="polite"></span>
+      <button type="button" id="save" class="primary">Zapisz</button>
+    </footer>
+    <script type="module" src="/src/settings.ts"></script>
+  </body>
+</html>

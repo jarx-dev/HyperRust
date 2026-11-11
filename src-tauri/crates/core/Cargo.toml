@@ -1,0 +1,50 @@
+[package]
+name = "hyperrust-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Platform-agnostic core of HyperRust: settings, push-to-talk state machine, audio DSP, STT providers, post-processing. No Tauri dependency."
+license = "MIT"
+
+[lib]
+name = "hyperrust_core"
+path = "src/lib.rs"
+
+[dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json", "stream", "multipart", "http2"] }
+tokio = { version = "1", features = ["rt", "macros", "time", "sync", "process", "io-util"] }
+tokio-tungstenite = { version = "0.30", default-features = false, features = ["connect", "rustls-tls-native-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["std", "tls12", "aws-lc-rs"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+base64 = "0.22"
+url = "2"
+sha2 = "0.11"
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros", "time", "sync", "rt-multi-thread", "net", "io-util"] }
+
+[[example]]
+name = "smoke"
+path = "examples/smoke.rs"
+
+[[example]]
+name = "llm_bench"
+path = "examples/llm_bench.rs"
+
+[[example]]
+name = "prompt_eval"
+path = "examples/prompt_eval.rs"
+test = true
+
+[[example]]
+name = "balance"
+path = "examples/balance.rs"
+
+[[example]]
+name = "ranking"
+path = "examples/ranking.rs"
+test = true
