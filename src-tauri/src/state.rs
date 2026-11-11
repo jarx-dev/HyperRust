@@ -36,14 +36,24 @@ const fn parse_u64(s: &str) -> u64 {
 /// year, month and day, hour and minute), so every update shows a higher
 /// number. A build that never updates itself says so.
 pub fn version_label() -> String {
-    let short = chrono::DateTime::from_timestamp(BUILD.built_at as i64, 0)
-        .map(|t| t.with_timezone(&chrono::Local).format("v%y.%m%d.%H%M").to_string())
-        .unwrap_or_default();
-    if env!("HYPERRUST_SELF_UPDATE").is_empty() {
-        format!("{short} lokalna")
+    let short = short_version();
+    if is_local_build() {
+        hyperrust_core::tr!("{short} local", "{short} lokalna")
     } else {
         short
     }
+}
+
+/// The build time as `v26.1111.1215`.
+pub fn short_version() -> String {
+    chrono::DateTime::from_timestamp(BUILD.built_at as i64, 0)
+        .map(|t| t.with_timezone(&chrono::Local).format("v%y.%m%d.%H%M").to_string())
+        .unwrap_or_default()
+}
+
+/// A build that never updates itself (made without `HYPERRUST_BUILD`).
+pub fn is_local_build() -> bool {
+    env!("HYPERRUST_SELF_UPDATE").is_empty()
 }
 
 

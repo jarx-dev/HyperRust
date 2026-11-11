@@ -42,7 +42,7 @@ impl Secrets {
         }
         entry(key)?
             .set_password(value)
-            .map_err(|e| format!("nie udało się zapisać klucza w Menedżerze poświadczeń: {e}"))?;
+            .map_err(|e| hyperrust_core::tr!("could not save the key in Credential Manager: {e}", "nie udało się zapisać klucza w Menedżerze poświadczeń: {e}"))?;
         self.cache.lock().expect("secrets mutex").insert(key, Some(value.to_string()));
         Ok(())
     }
@@ -50,7 +50,7 @@ impl Secrets {
     pub fn delete(&self, key: SecretKey) -> Result<(), String> {
         match entry(key)?.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => {}
-            Err(e) => return Err(format!("nie udało się usunąć klucza: {e}")),
+            Err(e) => return Err(hyperrust_core::tr!("could not delete the key: {e}", "nie udało się usunąć klucza: {e}")),
         }
         self.cache.lock().expect("secrets mutex").insert(key, None);
         Ok(())

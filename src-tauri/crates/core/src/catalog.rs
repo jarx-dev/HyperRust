@@ -84,7 +84,7 @@ pub fn parse_list(body: &str) -> Result<Vec<CatalogModel>> {
     let data = v
         .get("data")
         .and_then(Value::as_array)
-        .ok_or_else(|| Error::InvalidResponse("brak pola data".into()))?;
+        .ok_or_else(|| Error::InvalidResponse(crate::tr!("missing data field", "brak pola data")))?;
     let mut models: Vec<CatalogModel> = data
         .iter()
         .filter_map(|m| {

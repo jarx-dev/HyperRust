@@ -242,7 +242,7 @@ pub(crate) fn text_field(body: &[u8], field: &str) -> Result<String> {
     v.get(field)
         .and_then(|t| t.as_str())
         .map(|t| t.trim().to_string())
-        .ok_or_else(|| Error::InvalidResponse(format!("brak pola `{field}`")))
+        .ok_or_else(|| Error::InvalidResponse(crate::tr!("missing field `{field}`", "brak pola `{field}`")))
 }
 
 #[cfg(test)]

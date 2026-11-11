@@ -1,6 +1,6 @@
 # HyperRust
 
-Push-to-talk dictation for Windows: a global hotkey records, streams to a speech-to-text service, optionally runs an LLM over the text and pastes it into the active window. Rust + Tauri 2, plain TypeScript UI, one portable EXE; Polish UI.
+Push-to-talk dictation for Windows: a global hotkey records, streams to a speech-to-text service, optionally runs an LLM over the text and pastes it into the active window. Rust + Tauri 2, plain TypeScript UI, one portable EXE; English UI with Polish selectable.
 
 ## Commands
 
@@ -20,6 +20,7 @@ Push-to-talk dictation for Windows: a global hotkey records, streams to a speech
 - Only builds made with `HYPERRUST_BUILD` set (release workflow, `publish-dev.sh`) update themselves (`HYPERRUST_SELF_UPDATE` from `build.rs`), so a local test build is never replaced under test.
 - The updater takes plain HTTP only from Tailscale and loopback addresses and follows redirects only HTTPS→HTTPS. Don't loosen either: GitHub's `releases/latest/download` redirects twice, and an HTTP hop would let the manifest and its SHA-256 be swapped together.
 - Nothing slow runs on the dictation path (history upload, balances, catalogs wait for a quiet moment). A change that adds time between key release and paste must say how much, measured before and after (`timings.jsonl`).
+- Every user-visible text exists in English and Polish: the frontend takes it from `src/i18n.ts` (`t()`, `data-t` in HTML), Rust from `hyperrust_core::tr!`. Log templates stay Polish (interpolated error text follows the UI language); prompts, the dictionary and the STT language are content and never depend on the UI language. Settings without `ui_language` predate it and load as Polish.
 - `ranking.json` sits next to a private server's `latest.json`; builds updating from GitHub read the public copy (`ranking::GITHUB_URL`, asset of the pre-release `ranking`, uploaded by `scripts/ranking-nuc.sh`). NEVER publish the judge's `issues` there: they quote dictations and part of the set is the owner's private history. Keep `ranking` a pre-release, or `releases/latest` (the updater's manifest URL) would point at it.
 
 ## Key files

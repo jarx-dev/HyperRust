@@ -145,6 +145,11 @@ nav {
   font-size: 11.5px;
 }
 
+/* Keep the instruction in one piece: it moves under the shortcut instead of breaking mid-phrase. */
+.side-foot span {
+  white-space: nowrap;
+}
+
 kbd {
   display: inline-block;
   padding: 0 6px;
@@ -877,7 +882,7 @@ td > button {
 }
 
 .htrans::before {
-  content: "Transkrypcja: ";
+  content: attr(data-label);
   font-weight: 600;
 }
 

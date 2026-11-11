@@ -1,10 +1,11 @@
 // Recording indicator: reacts to state and level events from the Rust side.
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { type Lang, setLang, translatePage } from "./i18n";
 
 type OverlayState =
   | { state: "hidden" }
-  | { state: "recording"; mode: string; switchable: boolean }
+  | { state: "recording"; mode: string; lang: Lang; switchable: boolean }
   | { state: "processing"; stage: string }
   | { state: "done"; message: string }
   | { state: "error"; message: string };
@@ -79,6 +80,8 @@ function render(s: OverlayState): void {
   }
   switch (s.state) {
     case "recording":
+      setLang(s.lang);
+      translatePage();
       label.textContent = s.switchable ? "" : s.mode;
       modeName.textContent = s.mode;
       modeButton.hidden = !s.switchable;

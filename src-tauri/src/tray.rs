@@ -1,7 +1,7 @@
 //! Tray icon: settings, history, mode switch, update check, logs, quit; the
 //! tooltip shows the active mode and the provider balances.
 
-use hyperrust_core::balance;
+use hyperrust_core::{balance, tr};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -16,7 +16,7 @@ const MODE_PREFIX: &str = "mode:";
 
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let settings = app.state::<AppState>().settings();
-    let modes = Submenu::with_id(app, "modes", "Tryb", true)?;
+    let modes = Submenu::with_id(app, "modes", tr!("Mode", "Tryb"), true)?;
     for m in &settings.modes {
         let item = CheckMenuItem::with_id(
             app,
@@ -28,19 +28,19 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         )?;
         modes.append(&item)?;
     }
-    let open = MenuItem::with_id(app, "settings", "Ustawienia…", true, None::<&str>)?;
-    let history = MenuItem::with_id(app, "history", "Historia…", true, None::<&str>)?;
+    let open = MenuItem::with_id(app, "settings", tr!("Settings…", "Ustawienia…"), true, None::<&str>)?;
+    let history = MenuItem::with_id(app, "history", tr!("History…", "Historia…"), true, None::<&str>)?;
     let autostart = CheckMenuItem::with_id(
         app,
         "autostart",
-        "Uruchamiaj z Windows",
+        tr!("Start with Windows", "Uruchamiaj z Windows"),
         true,
         crate::autostart::is_active().unwrap_or(settings.autostart),
         None::<&str>,
     )?;
-    let update = MenuItem::with_id(app, "update", "Sprawdź aktualizacje", true, None::<&str>)?;
-    let logs = MenuItem::with_id(app, "logs", "Otwórz folder logów", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Zakończ", true, None::<&str>)?;
+    let update = MenuItem::with_id(app, "update", tr!("Check for updates", "Sprawdź aktualizacje"), true, None::<&str>)?;
+    let logs = MenuItem::with_id(app, "logs", tr!("Open logs folder", "Otwórz folder logów"), true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", tr!("Quit", "Zakończ"), true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let sep2 = PredefinedMenuItem::separator(app)?;
     Menu::with_items(app, &[&open, &history, &modes, &autostart, &sep, &update, &logs, &sep2, &quit])
@@ -50,9 +50,10 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 /// fit the Windows tooltip limit.
 fn tooltip(app: &AppHandle) -> String {
     let s = app.state::<AppState>().settings();
-    let mut required = vec![format!("HyperRust — tryb: {}", s.active_mode().name)];
+    let (mode, hotkey, how, version) = (&s.active_mode().name, &s.hotkey, mode_label(s.hotkey_mode), crate::state::version_label());
+    let mut required = vec![tr!("HyperRust — mode: {mode}", "HyperRust — tryb: {mode}")];
     required.extend(crate::balances::lines(&s));
-    let optional = [format!("Skrót: {} ({})", s.hotkey, mode_label(s.hotkey_mode)), format!("Wersja: {}", crate::state::version_label())];
+    let optional = [tr!("Shortcut: {hotkey} ({how})", "Skrót: {hotkey} ({how})"), tr!("Version: {version}", "Wersja: {version}")];
     balance::fit_tooltip(&required, &optional, balance::TOOLTIP_MAX)
 }
 
@@ -172,7 +173,11 @@ fn show_window(app: &AppHandle, page: Option<&str>) {
     }
     let url = page.map_or_else(|| "index.html".to_string(), |p| format!("index.html#{p}"));
     let result = WebviewWindowBuilder::new(app, SETTINGS_LABEL, WebviewUrl::App(url.into()))
-        .title("HyperRust — ustawienia")
+        .title(tr!("HyperRust — settings", "HyperRust — ustawienia"))
+        // The page renames itself when the language is switched.
+        .on_document_title_changed(|w, title| {
+            let _ = w.set_title(&title);
+        })
         .inner_size(1000.0, 760.0)
         .min_inner_size(760.0, 540.0)
         .center()

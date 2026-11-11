@@ -5,6 +5,7 @@
 # and headless means nothing ever shows on that machine's screen.
 #
 #   scripts/screenshots.sh           # Windows over ssh, pictures into docs/screenshots
+#   UI=en scripts/screenshots.sh     # the English UI, pictures into docs/screenshots/en
 #   LOCAL=1 scripts/screenshots.sh   # headless Chrome here, a quick preview (other fonts)
 #
 # The ssh host is this machine's own setting: WIN in ~/.config/hyperrust/build.env
@@ -13,7 +14,10 @@
 set -euo pipefail
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
+ui=${UI:-pl}
+[[ $ui == pl || $ui == en ]] || { echo "UI musi być pl albo en" >&2; exit 1; }
 out=$repo/docs/screenshots
+[[ $ui == pl ]] || out=$out/$ui
 cd "$repo"
 conf=${HYPERRUST_CONF:-${XDG_CONFIG_HOME:-$HOME/.config}/hyperrust/build.env}
 if [[ -f $conf ]]; then set -a; . "$conf"; set +a; fi
@@ -25,7 +29,7 @@ pnpm exec vite build --base ./ --outDir "$site" --emptyOutDir --logLevel warn
 cp scripts/screenshots/mock.js "$site/"
 # file:// pages: the mock must run before the app's module, and `crossorigin` would block it
 for page in index.html overlay.html; do
-  sed -i -e 's/ crossorigin//' -e '0,/<script type="module"/s//<script src=".\/mock.js"><\/script>\n    &/' "$site/$page"
+  sed -i -e 's/ crossorigin//' -e "0,/<script type=\"module\"/s//<script>window.MOCK_LANG = \"$ui\"<\/script>\n    <script src=\".\/mock.js\"><\/script>\n    &/" "$site/$page"
 done
 # headless windows have a minimum width: pin the indicator to its real window size
 sed -i 's|</head>|<style>html,body{width:338px!important;height:72px!important}</style></head>|' "$site/overlay.html"

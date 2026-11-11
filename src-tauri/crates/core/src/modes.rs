@@ -7,6 +7,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::UiLanguage;
+
 pub const TRANSCRIPT_OPEN: &str = "<transkrypcja>";
 pub const TRANSCRIPT_CLOSE: &str = "</transkrypcja>";
 pub const OUTPUT_OPEN: &str = "<wynik>";
@@ -122,11 +124,11 @@ impl Mode {
 pub const AGENT_MODE_ID: &str = "prompt";
 pub const RAW_MODE_ID: &str = "raw";
 
-pub fn default_modes() -> Vec<Mode> {
+pub fn default_modes(lang: UiLanguage) -> Vec<Mode> {
     vec![
         Mode {
             id: AGENT_MODE_ID.into(),
-            name: "Prompt dla agenta".into(),
+            name: default_mode_name(AGENT_MODE_ID, lang).unwrap_or_default().into(),
             post_process: true,
             prompt: String::new(),
             preset: Some(Preset::Agent),
@@ -134,13 +136,25 @@ pub fn default_modes() -> Vec<Mode> {
         },
         Mode {
             id: RAW_MODE_ID.into(),
-            name: "Surowa transkrypcja".into(),
+            name: default_mode_name(RAW_MODE_ID, lang).unwrap_or_default().into(),
             post_process: false,
             prompt: String::new(),
             preset: Some(Preset::Cleanup),
             llm_model: String::new(),
         },
     ]
+}
+
+/// The name a built-in mode gets on installation; only a display name, the
+/// id identifies the mode.
+pub fn default_mode_name(id: &str, lang: UiLanguage) -> Option<&'static str> {
+    Some(match (id, lang) {
+        (AGENT_MODE_ID, UiLanguage::En) => "Agent prompt",
+        (AGENT_MODE_ID, UiLanguage::Pl) => "Prompt dla agenta",
+        (RAW_MODE_ID, UiLanguage::En) => "Raw transcript",
+        (RAW_MODE_ID, UiLanguage::Pl) => "Surowa transkrypcja",
+        _ => return None,
+    })
 }
 
 /// User message carrying the transcript between markers.
@@ -190,7 +204,7 @@ mod tests {
 
     #[test]
     fn agent_mode_uses_builtin_prompt_until_overridden() {
-        let mut m = default_modes().remove(0);
+        let mut m = default_modes(UiLanguage::En).remove(0);
         assert!(m.post_process);
         assert_eq!(m.system_prompt(), AGENT_PROMPT);
         m.prompt = "własny".into();

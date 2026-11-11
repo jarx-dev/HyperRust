@@ -2,6 +2,7 @@
 // the settings and saves them in one call.
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { type Key, type Lang, locale, plural, setLang, t, translatePage } from "./i18n";
 
 type SttProvider = "elevenlabs" | "xai" | "openai" | "openrouter";
 type LlmBackend = "open_ai_compatible" | "open_router" | "claude_cli" | "codex_cli";
@@ -37,6 +38,7 @@ function parseDictionary(text: string): DictionaryEntry[] {
 }
 
 interface Settings {
+  ui_language: Lang;
   hotkey: string;
   hotkey_mode: "auto" | "hold" | "toggle";
   active_mode: string;
@@ -77,8 +79,10 @@ interface Snapshot {
   settings: Settings;
   builtin_prompts: Record<Preset, string>;
   build: { version: string; build: string; built_at: number };
-  /** The build time as `v26.1111.1215`, plus " lokalna" for a build that never updates itself. */
+  /** The build time as `v26.1111.1215`. */
   version: string;
+  /** A build that never updates itself. */
+  local_build: boolean;
   secrets: Record<SecretKey, boolean>;
   logs_dir: string;
   update: UpdateStatus;
@@ -220,17 +224,13 @@ interface RankingView {
   age_days: number;
 }
 
-const SECRETS: { key: SecretKey; label: string; use: string }[] = [
-  { key: "eleven_labs", label: "ElevenLabs", use: "Rozpoznawanie mowy (Scribe) i saldo" },
-  {
-    key: "eleven_labs_backup",
-    label: "ElevenLabs — konto zapasowe",
-    use: "Opcjonalne drugie konto, gdy na pierwszym skończą się kredyty",
-  },
-  { key: "xai", label: "xAI", use: "Rozpoznawanie mowy (Grok)" },
-  { key: "open_ai", label: "OpenAI", use: "Rozpoznawanie mowy" },
-  { key: "open_router", label: "OpenRouter", use: "Rozpoznawanie mowy, post-processing i saldo" },
-  { key: "llm_endpoint", label: "CLIProxy", use: "Token endpointu post-processingu" },
+const SECRETS = (): { key: SecretKey; label: string; use: string }[] => [
+  { key: "eleven_labs", label: "ElevenLabs", use: t("secretElevenLabsUse") },
+  { key: "eleven_labs_backup", label: t("secretBackupLabel"), use: t("secretBackupUse") },
+  { key: "xai", label: "xAI", use: t("secretXaiUse") },
+  { key: "open_ai", label: "OpenAI", use: t("secretOpenAiUse") },
+  { key: "open_router", label: "OpenRouter", use: t("secretOpenRouterUse") },
+  { key: "llm_endpoint", label: "CLIProxy", use: t("secretCliProxyUse") },
 ];
 
 const MODEL_KEYS = ["elevenlabs", "elevenlabs_realtime", "xai", "openai", "openai_realtime", "openrouter"];
@@ -265,17 +265,17 @@ const LLM_SECRET: Partial<Record<LlmBackend, SecretKey>> = {
 
 type ModeKind = "none" | Preset;
 
-const MODE_KINDS: [ModeKind, string][] = [
-  ["none", "Bez AI"],
-  ["cleanup", "Porządkowanie tekstu"],
-  ["agent", "Prompt dla agenta"],
+const MODE_KINDS: [ModeKind, Key][] = [
+  ["none", "kindNone"],
+  ["cleanup", "kindCleanup"],
+  ["agent", "kindAgent"],
 ];
 
-const OUTCOMES: Record<string, string> = {
-  llm_error_raw: "AI zawiodło, wklejono surowy tekst",
-  llm_empty_raw: "AI zwróciło pusty wynik, wklejono surowy tekst",
-  paste_error: "nie wklejono",
-  stt_error: "błąd rozpoznawania",
+const OUTCOMES: Record<string, Key> = {
+  llm_error_raw: "outcomeLlmErrorRaw",
+  llm_empty_raw: "outcomeLlmEmptyRaw",
+  paste_error: "outcomePasteError",
+  stt_error: "outcomeSttError",
 };
 
 const $ = <T extends HTMLElement = HTMLInputElement>(id: string): T => {
@@ -289,6 +289,71 @@ let builtinPrompts: Partial<Record<Preset, string>> = {};
 let secrets: Partial<Record<SecretKey, boolean>> = {};
 /** The saved settings as the form reads them, to tell unsaved edits. */
 let baseline = "";
+let snapshot: Snapshot | undefined;
+
+/** Number and date formats of the UI language. */
+function formats() {
+  const l = locale();
+  const usd = (o: Intl.NumberFormatOptions = {}) =>
+    new Intl.NumberFormat(l, { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol", ...o });
+  return {
+    nf0: new Intl.NumberFormat(l, { maximumFractionDigits: 0 }),
+    nf1: new Intl.NumberFormat(l, { maximumFractionDigits: 1 }),
+    nf2: new Intl.NumberFormat(l, { maximumFractionDigits: 2 }),
+    score: new Intl.NumberFormat(l, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+    usd: usd(),
+    usd2: usd({ maximumFractionDigits: 2 }),
+    usdPrice: usd({ minimumFractionDigits: 2, maximumFractionDigits: 3 }),
+    usdCost: usd({ minimumSignificantDigits: 2, maximumSignificantDigits: 2 }),
+    day: new Intl.DateTimeFormat(l, { day: "numeric", month: "short" }),
+    weekday: new Intl.DateTimeFormat(l, { weekday: "long", day: "numeric", month: "long" }),
+    clock: new Intl.DateTimeFormat(l, { hour: l === "pl-PL" ? "2-digit" : "numeric", minute: "2-digit" }),
+  };
+}
+
+let fmt = formats();
+
+/** The language of the last window, so a Polish UI does not start in English before the settings load. */
+function rememberedLang(): Lang {
+  try {
+    return localStorage.getItem("lang") === "pl" ? "pl" : "en";
+  } catch {
+    return "en";
+  }
+}
+
+/** Switch the window's texts and formats; dynamic parts follow on their next render (`rerender`). */
+function applyLanguage(l: Lang): void {
+  setLang(l);
+  fmt = formats();
+  translatePage();
+  try {
+    localStorage.setItem("lang", l);
+  } catch {
+    // only a convenience for the next start
+  }
+  if (snapshot) {
+    const version = snapshot.local_build ? `${snapshot.version} ${t("versionLocal")}` : snapshot.version;
+    $<HTMLElement>("build").textContent = t("versionLabel", { version });
+    $<HTMLElement>("build").title = t("versionTitle", { build: snapshot.build.build });
+  }
+}
+
+/** Redraw everything built in code after a language switch, keeping unsaved edits. */
+function rerender(): void {
+  if (!settings) return;
+  renderSttInUse();
+  renderKeyBadges();
+  renderModelPick();
+  renderSttPicks();
+  renderModes();
+  renderTiles();
+  renderSecrets();
+  void loadDevices($<HTMLSelectElement>("audio_device").value);
+  void loadTimings();
+  void loadOverview();
+  pageShown(currentPage);
+}
 
 function status(id: string, text: string, isError = false): void {
   const el = $<HTMLElement>(id);
@@ -326,9 +391,7 @@ function sttInUse(stt: Settings["stt"]): { model: string; live: boolean } {
 
 function renderSttInUse(): void {
   const { model, live } = sttInUse(readForm().stt);
-  $<HTMLElement>("stt-in-use").textContent = live
-    ? `Teraz: ${model}, na żywo.`
-    : `Teraz: ${model}, wsadowo (nagranie idzie do dostawcy po puszczeniu klawisza).`;
+  $<HTMLElement>("stt-in-use").textContent = t(live ? "sttNowLive" : "sttNowBatch", { model });
 }
 
 // ---------- form <-> settings ----------
@@ -348,6 +411,7 @@ function num(id: string): number {
 
 function fillForm(): void {
   const s = settings;
+  $<HTMLSelectElement>("ui_language").value = s.ui_language;
   bindValue("hotkey", s.hotkey);
   $<HTMLSelectElement>("hotkey_mode").value = s.hotkey_mode;
   $<HTMLSelectElement>("stt_provider").value = s.stt.provider;
@@ -387,6 +451,7 @@ function fillForm(): void {
 /** The form's settings; modes and the active mode are edited in `settings` itself. */
 function readForm(): Settings {
   const s = structuredClone(settings);
+  s.ui_language = $<HTMLSelectElement>("ui_language").value as Lang;
   s.hotkey = $("hotkey").value.trim();
   s.hotkey_mode = $<HTMLSelectElement>("hotkey_mode").value as Settings["hotkey_mode"];
   s.stt.provider = $<HTMLSelectElement>("stt_provider").value as SttProvider;
@@ -437,8 +502,8 @@ function keyBadge(id: string, key: SecretKey | undefined): void {
   if (!key) return;
   const ok = secrets[key] === true;
   badge.className = ok ? "badge ok" : "badge missing";
-  badge.textContent = ok ? "klucz zapisany" : "brak klucza";
-  badge.title = ok ? "Klucz jest w Menedżerze poświadczeń" : "Dodaj klucz na stronie Klucze API";
+  badge.textContent = t(ok ? "keySaved" : "keyMissing");
+  badge.title = t(ok ? "keySavedTitle" : "keyMissingTitle");
 }
 
 function renderKeyBadges(): void {
@@ -471,19 +536,11 @@ const modelLists = new Map<string, string[]>();
 const modelPrices = new Map<string, Price>();
 let modelsLoading = "";
 
-const usdPrice = new Intl.NumberFormat("pl-PL", {
-  style: "currency",
-  currency: "USD",
-  currencyDisplay: "narrowSymbol",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 3,
-});
-
 function priceText(p: Price | null | undefined): string {
   if (!p) return "";
-  if (p.unit === "hour") return `${usdPrice.format(p.usd)}/h`;
-  if (p.input === 0 && p.output === 0) return "bezpłatny";
-  return `${usdPrice.format(p.input)} / ${usdPrice.format(p.output)} za 1M tokenów`;
+  if (p.unit === "hour") return `${fmt.usdPrice.format(p.usd)}/h`;
+  if (p.input === 0 && p.output === 0) return t("priceFree");
+  return t("pricePerTokens", { input: fmt.usdPrice.format(p.input), output: fmt.usdPrice.format(p.output) });
 }
 
 /** Option text: the parts that apply, joined with a middle dot. */
@@ -512,18 +569,18 @@ function listKey(backend: ModelBackend): string {
 function family(id: string): string {
   for (const [re, name] of FAMILIES) if (re.test(id)) return name;
   const slash = id.indexOf("/");
-  return slash > 0 ? id.slice(0, slash) : "Inne";
+  return slash > 0 ? id.slice(0, slash) : t("familyOther");
 }
 
 function familyRank(name: string): number {
   const i = FAMILIES.findIndex(([, n]) => n === name);
-  return i >= 0 ? i : name === "Inne" ? 99 : 50;
+  return i >= 0 ? i : name === t("familyOther") ? 99 : 50;
 }
 
 /** Options for a model picker: `current` first when the list lacks it, then the list by family. */
 function modelItems(backend: ModelBackend, current: string): HTMLElement[] {
   const models = (modelLists.get(listKey(backend)) ?? []).filter((m) => !NOT_CHAT.test(m));
-  const label = (m: string) => optionText(m, priceText(modelPrices.get(m)), m === RECOMMENDED[backend] && "zalecany");
+  const label = (m: string) => optionText(m, priceText(modelPrices.get(m)), m === RECOMMENDED[backend] && t("recommended"));
   const groups = new Map<string, string[]>();
   for (const m of models) groups.set(family(m), [...(groups.get(family(m)) ?? []), m]);
   const items: HTMLElement[] = [];
@@ -551,7 +608,7 @@ function renderModelPick(): void {
   }
   const current = modelField(backend).value.trim();
   const pick = $<HTMLSelectElement>("llm_model_pick");
-  pick.replaceChildren(...modelItems(backend, current), new Option("Wpisz inną nazwę…", CUSTOM_MODEL));
+  pick.replaceChildren(...modelItems(backend, current), new Option(t("customModel"), CUSTOM_MODEL));
   // Keep the name field open while the user is typing in it.
   const typing = !$("llm_model_custom_row").hidden;
   pick.value = typing || !current ? CUSTOM_MODEL : current;
@@ -565,14 +622,14 @@ async function loadModels(force = false): Promise<void> {
   const key = listKey(backend);
   if ((!force && modelLists.has(key)) || modelsLoading === key) return;
   modelsLoading = key;
-  status("models-status", "Pobieranie listy modeli…");
+  status("models-status", t("loadingModels"));
   try {
     const models = await invoke<CatalogModel[]>("list_llm_models", { backend, baseUrl: $("llm_base_url").value.trim() });
     modelLists.set(key, models.map((m) => m.id));
     for (const m of models) if (m.price) modelPrices.set(m.id, m.price);
     status("models-status", "");
   } catch (e) {
-    status("models-status", `Nie udało się pobrać listy modeli: ${errorText(e)}. Nazwę możesz wpisać ręcznie.`, true);
+    status("models-status", t("modelsFailed", { error: errorText(e) }), true);
   } finally {
     modelsLoading = "";
   }
@@ -607,7 +664,7 @@ $<HTMLSelectElement>("llm_backend").addEventListener("change", () => {
   void loadModels();
 });
 $("llm_base_url").addEventListener("change", () => void loadModels());
-// The "twój" mark in the ranking follows the model the form has now.
+// The "yours" mark in the ranking follows the model the form has now.
 for (const id of ["llm_model_pick", "llm_backend", "llm_model_custom"]) $(id).addEventListener("change", () => void loadRanking());
 
 const sttPage = document.querySelector<HTMLElement>('section[data-page="stt"]')!;
@@ -646,8 +703,8 @@ function sttOptions(key: string, current: string): HTMLOptionElement[] {
     optionText(
       m.name,
       priceText(m.price),
-      m.id === STT_RECOMMENDED[key] && "zalecany",
-      isNew(m) && `nowy, ${day.format(m.created! * 1000)}`,
+      m.id === STT_RECOMMENDED[key] && t("recommended"),
+      isNew(m) && t("newModel", { date: fmt.day.format(m.created! * 1000) }),
     );
   const items = models.map((m) => new Option(label(m), m.id));
   if (current && !models.some((m) => m.id === current)) items.unshift(new Option(current, current));
@@ -658,7 +715,7 @@ function renderSttPick(key: string): void {
   const input = $(`m_${key}`);
   const pick = $<HTMLSelectElement>(`m_${key}_pick`);
   const current = input.value.trim();
-  pick.replaceChildren(...sttOptions(key, current), new Option("Wpisz inną nazwę…", CUSTOM_MODEL));
+  pick.replaceChildren(...sttOptions(key, current), new Option(t("customModel"), CUSTOM_MODEL));
   // Keep the name field open while the user is typing in it.
   pick.value = !input.hidden || !current ? CUSTOM_MODEL : current;
   input.hidden = pick.value !== CUSTOM_MODEL;
@@ -679,26 +736,25 @@ for (const k of MODEL_KEYS) {
 }
 
 /** Where the prices in the lists come from (`catalog::builtin_stt` or the catalog). */
-const STT_PRICE_NOTE: Record<SttProvider, string> = {
-  elevenlabs:
-    "Ceny za godzinę mowy według cennika API ElevenLabs z 15.10.2026. W abonamencie płacisz kredytami: ok. 78,5 za minutę na żywo i 68 wsadowo.",
-  xai: "Ceny za godzinę mowy według cennika xAI z 15.10.2026. Na żywo kosztuje dwa razy więcej niż wsadowo.",
-  openai: "Ceny za godzinę mowy według cennika OpenAI z 15.10.2026. Modele gpt-4o są rozliczane za tokeny, to szacunek OpenAI.",
-  openrouter: "Ceny z katalogu OpenRouter: za godzinę mowy albo za tokeny.",
+const STT_PRICE_NOTE: Record<SttProvider, Key> = {
+  elevenlabs: "priceNoteElevenLabs",
+  xai: "priceNoteXai",
+  openai: "priceNoteOpenAi",
+  openrouter: "priceNoteOpenRouter",
 };
 
 /** Fetch the selected provider's STT models once per window. */
 async function loadSttModels(): Promise<void> {
   const provider = $<HTMLSelectElement>("stt_provider").value as SttProvider;
-  if (sttModelLists.has(provider)) status("stt-models-status", STT_PRICE_NOTE[provider]);
+  if (sttModelLists.has(provider)) status("stt-models-status", t(STT_PRICE_NOTE[provider]));
   if (sttModelLists.has(provider) || sttModelsLoading === provider) return;
   sttModelsLoading = provider;
-  status("stt-models-status", "Pobieranie listy modeli…");
+  status("stt-models-status", t("loadingModels"));
   try {
     sttModelLists.set(provider, await invoke<SttModelList>("list_stt_models", { provider }));
-    status("stt-models-status", STT_PRICE_NOTE[provider]);
+    status("stt-models-status", t(STT_PRICE_NOTE[provider]));
   } catch (e) {
-    status("stt-models-status", `Nie udało się pobrać listy modeli: ${errorText(e)}. Nazwę możesz wpisać ręcznie.`, true);
+    status("stt-models-status", t("modelsFailed", { error: errorText(e) }), true);
   } finally {
     sttModelsLoading = "";
   }
@@ -737,21 +793,21 @@ function modeModelRow(mode: Mode): HTMLElement {
   const text = el("label", "set-text");
   text.htmlFor = id;
   const sub = el("small");
-  text.append(el("b", "", "Model AI"), sub);
+  text.append(el("b", "", t("modeModel")), sub);
   const ctl = el("div", "ctl");
   row.append(text, ctl);
 
   const custom = el("input");
   custom.hidden = true;
   custom.spellcheck = false;
-  custom.placeholder = "nazwa modelu";
-  custom.setAttribute("aria-label", `Nazwa modelu trybu ${mode.name}`);
+  custom.placeholder = t("modelNamePlaceholder");
+  custom.setAttribute("aria-label", t("modeModelNameAria", { mode: mode.name }));
   custom.addEventListener("input", () => (mode.llm_model = custom.value.trim()));
 
   const refresh = () => {
     const backend = $<HTMLSelectElement>("llm_backend").value as LlmBackend;
-    sub.textContent = `Dla wykonawcy ${LLM_LABELS[backend]}.`;
-    const fallback = `Domyślny (${defaultModel() || "model CLI"})`;
+    sub.textContent = t("forBackend", { backend: LLM_LABELS[backend] });
+    const fallback = t("defaultModel", { model: defaultModel() || t("cliModelFallback") });
     const http = modelBackend();
     if (!http) {
       custom.hidden = true;
@@ -766,7 +822,7 @@ function modeModelRow(mode: Mode): HTMLElement {
     }
     const pick = el("select");
     pick.id = id;
-    pick.append(new Option(fallback, ""), ...modelItems(http, mode.llm_model), new Option("Wpisz inną nazwę…", CUSTOM_MODEL));
+    pick.append(new Option(fallback, ""), ...modelItems(http, mode.llm_model), new Option(t("customModel"), CUSTOM_MODEL));
     pick.value = custom.hidden ? mode.llm_model : CUSTOM_MODEL;
     pick.addEventListener("change", () => {
       custom.hidden = pick.value !== CUSTOM_MODEL;
@@ -792,8 +848,8 @@ function modeCard(mode: Mode, index: number): HTMLElement {
   radio.type = "radio";
   radio.name = "active-mode";
   radio.value = mode.id;
-  radio.title = "Aktywny tryb";
-  radio.setAttribute("aria-label", `Aktywny tryb: ${mode.name}`);
+  radio.title = t("activeMode");
+  radio.setAttribute("aria-label", t("activeModeAria", { mode: mode.name }));
   radio.addEventListener("change", () => {
     settings.active_mode = mode.id;
     markActiveMode();
@@ -801,21 +857,21 @@ function modeCard(mode: Mode, index: number): HTMLElement {
 
   const name = el("input", "mode-name");
   name.value = mode.name;
-  name.setAttribute("aria-label", "Nazwa trybu");
+  name.setAttribute("aria-label", t("modeNameAria"));
   name.addEventListener("input", () => {
     mode.name = name.value;
-    radio.setAttribute("aria-label", `Aktywny tryb: ${mode.name}`);
+    radio.setAttribute("aria-label", t("activeModeAria", { mode: mode.name }));
   });
 
   const kind = el("select");
-  kind.setAttribute("aria-label", "Co robi tryb");
-  kind.append(...MODE_KINDS.map(([value, label]) => new Option(label, value)));
+  kind.setAttribute("aria-label", t("modeKindAria"));
+  kind.append(...MODE_KINDS.map(([value, label]) => new Option(t(label), value)));
   kind.value = modeKind(mode);
 
   const del = button("", "icon ghost");
   del.innerHTML = TRASH;
-  del.title = "Usuń tryb";
-  del.setAttribute("aria-label", `Usuń tryb ${mode.name}`);
+  del.title = t("deleteMode");
+  del.setAttribute("aria-label", t("deleteModeAria", { mode: mode.name }));
   del.disabled = settings.modes.length <= 1;
   del.addEventListener("click", () => {
     settings.modes.splice(index, 1);
@@ -830,11 +886,11 @@ function modeCard(mode: Mode, index: number): HTMLElement {
   const prompt = el("textarea");
   prompt.rows = 8;
   prompt.value = mode.prompt;
-  prompt.setAttribute("aria-label", `Prompt trybu ${mode.name}`);
+  prompt.setAttribute("aria-label", t("modePromptAria", { mode: mode.name }));
   const summary = el("summary");
   const showPrompt = () => {
     prompt.placeholder = builtinPrompts[mode.preset ?? "cleanup"] ?? "";
-    summary.textContent = mode.prompt.trim() ? "Prompt: własny" : "Prompt: wbudowany";
+    summary.textContent = t(mode.prompt.trim() ? "promptOwn" : "promptBuiltin");
   };
   prompt.addEventListener("input", () => {
     mode.prompt = prompt.value;
@@ -844,11 +900,7 @@ function modeCard(mode: Mode, index: number): HTMLElement {
   details.append(
     summary,
     prompt,
-    el(
-      "p",
-      "hint",
-      "Pusty prompt = wbudowany dla wybranego rodzaju (widoczny w tle pola). Transkrypcja trafia do modelu w znacznikach <transkrypcja>, wynik ma być w <wynik>.",
-    ),
+    el("p", "hint", t("promptHint")),
   );
 
   const body = el("div", "mode-body");
@@ -877,7 +929,7 @@ function renderModes(): void {
 $<HTMLButtonElement>("add-mode").addEventListener("click", () => {
   let n = settings.modes.length + 1;
   while (settings.modes.some((m) => m.id === `tryb-${n}`)) n++;
-  settings.modes.push({ id: `tryb-${n}`, name: `Tryb ${n}`, post_process: true, prompt: "", preset: "cleanup", llm_model: "" });
+  settings.modes.push({ id: `tryb-${n}`, name: t("newModeName", { n }), post_process: true, prompt: "", preset: "cleanup", llm_model: "" });
   renderModes();
   updateDirty();
   const name = document.querySelector<HTMLInputElement>(`.mode[data-id="tryb-${n}"] .mode-name`);
@@ -888,7 +940,6 @@ $<HTMLButtonElement>("add-mode").addEventListener("click", () => {
 // ---------- history ----------
 
 let historyItems: HistoryItem[] = [];
-const weekday = new Intl.DateTimeFormat("pl-PL", { weekday: "long", day: "numeric", month: "long" });
 
 function dayLabel(ts: number): string {
   const d = new Date(ts);
@@ -896,7 +947,7 @@ function dayLabel(ts: number): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const diff = Math.round((today.getTime() - d.getTime()) / DAY_MS);
-  return diff === 0 ? "Dzisiaj" : diff === 1 ? "Wczoraj" : weekday.format(d);
+  return diff === 0 ? t("today") : diff === 1 ? t("yesterday") : fmt.weekday.format(d);
 }
 
 /** Copy to the clipboard; the textarea route covers a webview without clipboard access. */
@@ -920,7 +971,7 @@ async function copyText(text: string): Promise<boolean> {
 function copyButton(label: string, text: string): HTMLButtonElement {
   const b = button(label, "ghost");
   b.addEventListener("click", async () => {
-    b.textContent = (await copyText(text)) ? "Skopiowano" : "Nie udało się";
+    b.textContent = t((await copyText(text)) ? "copied" : "copyFailed");
     window.setTimeout(() => (b.textContent = label), 1200);
   });
   return b;
@@ -929,9 +980,9 @@ function copyButton(label: string, text: string): HTMLButtonElement {
 function historyRow(h: HistoryItem): HTMLElement {
   const row = el("div", "hitem");
   const meta = el("div", "hmeta");
-  meta.append(el("span", "", clock.format(h.ts_ms)), el("span", "", modeName(h.mode)));
+  meta.append(el("span", "", fmt.clock.format(h.ts_ms)), el("span", "", modeName(h.mode)));
   if (h.release_to_paste_ms !== null && h.release_to_paste_ms !== undefined) {
-    meta.append(el("span", "", `${nf1.format(h.release_to_paste_ms / 1000)} s`));
+    meta.append(el("span", "", `${fmt.nf1.format(h.release_to_paste_ms / 1000)} s`));
   }
   const cost = costOf(h);
   if (cost.text !== "–") {
@@ -939,14 +990,18 @@ function historyRow(h: HistoryItem): HTMLElement {
     span.title = cost.detail;
     meta.append(span);
   }
-  if (h.outcome !== "ok") meta.append(el("span", "badge missing", OUTCOMES[h.outcome] ?? h.outcome));
+  if (h.outcome !== "ok") meta.append(el("span", "badge missing", OUTCOMES[h.outcome] ? t(OUTCOMES[h.outcome]) : h.outcome));
   const changed = h.transcript.trim() !== h.output.trim();
   const actions = el("span", "hactions");
-  actions.append(copyButton("Kopiuj", h.output));
-  if (changed) actions.append(copyButton("Kopiuj transkrypcję", h.transcript));
+  actions.append(copyButton(t("copy"), h.output));
+  if (changed) actions.append(copyButton(t("copyTranscript"), h.transcript));
   meta.append(actions);
   row.append(meta, el("p", "htext", h.output));
-  if (changed) row.append(el("p", "htrans", h.transcript));
+  if (changed) {
+    const transcript = el("p", "htrans", h.transcript);
+    transcript.dataset.label = t("transcriptLabel");
+    row.append(transcript);
+  }
   return row;
 }
 
@@ -958,19 +1013,18 @@ function renderHistory(): void {
 
   const line = $<HTMLElement>("hist-status");
   line.classList.remove("error");
-  const count = query
-    ? `${items.length} z ${historyItems.length} ${plural(historyItems.length, DICTATIONS)}`
-    : `${historyItems.length} ${plural(historyItems.length, DICTATIONS)} na tym komputerze`;
+  const total = historyItems.length;
+  const count = t(query ? "histCountFiltered" : "histCount", { n: items.length, total, dictations: plural(total, "dictations") });
   line.replaceChildren(count);
   if (settings && !settings.history.enabled) {
-    const go = button("Włącz w Ogólnych", "link");
+    const go = button(t("histEnableInGeneral"), "link");
     go.addEventListener("click", () => showPage("general"));
-    line.append(". Zapisywanie historii jest wyłączone. ", go);
+    line.append(t("histOff"), go);
   }
 
   const host = $<HTMLDivElement>("history-list");
   if (items.length === 0) {
-    host.replaceChildren(el("div", "card empty-note", query ? "Nic nie pasuje do wyszukiwania." : "Brak dyktowań w historii."));
+    host.replaceChildren(el("div", "card empty-note", t(query ? "histNoMatch" : "histEmpty")));
     return;
   }
   const nodes: HTMLElement[] = [];
@@ -1004,24 +1058,29 @@ $("hist-search").addEventListener("input", renderHistory);
 
 function renderSecrets(): void {
   $<HTMLDivElement>("secrets").replaceChildren(
-    ...SECRETS.map(({ key, label, use }) => {
+    ...SECRETS().map(({ key, label, use }) => {
       const present = secrets[key] === true;
       const row = el("div", "set");
       const text = el("label", "set-text");
       text.htmlFor = `secret-${key}`;
       text.append(el("b", "", label), el("small", "", use));
-      const badge = el("span", present ? "badge ok" : "badge", present ? "zapisany" : "brak");
+      const badge = el("span", present ? "badge ok" : "badge", t(present ? "secretStored" : "secretNone"));
       const input = el("input");
       input.id = `secret-${key}`;
       input.type = "password";
       input.autocomplete = "off";
-      input.placeholder = present ? "wpisz, aby zmienić" : "wklej klucz";
-      const save = button("Zapisz");
+      input.placeholder = t(present ? "secretChange" : "secretPaste");
+      // A redraw (language switch) keeps a key typed but not saved yet.
+      input.value = document.querySelector<HTMLInputElement>(`#secret-${key}`)?.value ?? "";
+      const save = button(t("save"));
       const store = async () => {
-        if (!input.value.trim()) return;
+        const value = input.value;
+        if (!value.trim()) return;
         try {
-          await invoke("set_secret", { key, value: input.value });
-          input.value = "";
+          await invoke("set_secret", { key, value });
+          // The field may have been redrawn (language switch) while saving.
+          const field = document.querySelector<HTMLInputElement>(`#secret-${key}`);
+          if (field?.value === value) field.value = "";
           await reloadSecrets(key);
         } catch (e) {
           status("save-status", errorText(e), true);
@@ -1031,7 +1090,7 @@ function renderSecrets(): void {
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") void store();
       });
-      const del = button("Usuń", "ghost");
+      const del = button(t("delete"), "ghost");
       del.disabled = !present;
       del.addEventListener("click", async () => {
         try {
@@ -1117,7 +1176,7 @@ function captureHotkey(): void {
     window.clearTimeout(timer);
     void invoke("set_hotkey_capture", { active: false });
     field.value = value ?? previous;
-    btn.textContent = "Zmień";
+    btn.textContent = t("change");
     btn.disabled = false;
     updateDirty();
   };
@@ -1134,7 +1193,7 @@ function captureHotkey(): void {
     soloModifier = "";
     const key = keyName(e.code);
     if (!key) {
-      field.value = `Nieobsługiwany klawisz: ${e.code}`;
+      field.value = t("unsupportedKey", { code: e.code });
       return;
     }
     const parts = [e.ctrlKey && "Ctrl", e.shiftKey && "Shift", e.altKey && "Alt", e.metaKey && "Win", key];
@@ -1146,7 +1205,7 @@ function captureHotkey(): void {
   };
 
   btn.disabled = true;
-  btn.textContent = "Naciśnij skrót…";
+  btn.textContent = t("pressShortcut");
   field.value = "";
   void invoke("set_hotkey_capture", { active: true });
   window.addEventListener("keydown", onDown, true);
@@ -1173,7 +1232,7 @@ async function loadDevices(selected: string): Promise<void> {
   const sel = $<HTMLSelectElement>("audio_device");
   const devices = await invoke<string[]>("list_input_devices").catch(() => [] as string[]);
   const names = selected && !devices.includes(selected) ? [selected, ...devices] : devices;
-  sel.replaceChildren(new Option("Domyślny systemowy", ""), ...names.map((d) => new Option(d, d)));
+  sel.replaceChildren(new Option(t("systemDefault"), ""), ...names.map((d) => new Option(d, d)));
   sel.value = selected;
 }
 
@@ -1181,9 +1240,14 @@ function showUpdate(u: UpdateStatus): void {
   status("update-status", u.message || u.state, u.state === "błąd");
 }
 
+/** A started check finishes in the background: show its result a moment later. */
+function rereadUpdateSoon(): void {
+  window.setTimeout(async () => showUpdate((await invoke<Snapshot>("get_snapshot")).update), 3000);
+}
+
 $<HTMLButtonElement>("update-check").addEventListener("click", async () => {
   showUpdate(await invoke<UpdateStatus>("check_updates"));
-  window.setTimeout(async () => showUpdate((await invoke<Snapshot>("get_snapshot")).update), 3000);
+  rereadUpdateSoon();
 });
 
 $<HTMLButtonElement>("open-logs").addEventListener("click", () => void invoke("open_logs_dir"));
@@ -1193,42 +1257,32 @@ document.querySelectorAll<HTMLButtonElement>("button[data-link]").forEach((b) =>
 
 const ms = (v: number | null) => (v === null ? "–" : `${v} ms`);
 
-const usdCost = new Intl.NumberFormat("pl-PL", {
-  style: "currency",
-  currency: "USD",
-  currencyDisplay: "narrowSymbol",
-  minimumSignificantDigits: 2,
-  maximumSignificantDigits: 2,
-});
-
 /** What one dictation cost: the known parts summed ("≈" when the speech part
- *  is estimated from the price list, "abon." for post-processing on a
+ *  is estimated from the price list, "sub." for post-processing on a
  *  subscription, "?" for a part without a price), and the breakdown. */
-function costOf(t: Timing): { text: string; detail: string } {
-  if (t.stt_cost_usd === undefined) return { text: "–", detail: "Koszt zapisywany od wersji z kolumną „Koszt”." };
-  const stt = t.stt_cost_usd;
-  const llm = t.llm_cost_usd ?? null;
-  const subscription = !!t.llm && llm === null && !t.llm.startsWith("openrouter:");
+function costOf(d: Timing): { text: string; detail: string } {
+  if (d.stt_cost_usd === undefined) return { text: "–", detail: t("costNotRecorded") };
+  const stt = d.stt_cost_usd;
+  const llm = d.llm_cost_usd ?? null;
+  const subscription = !!d.llm && llm === null && !d.llm.startsWith("openrouter:");
   const detail = [
     stt === null
-      ? `${t.stt}: brak ceny`
-      : t.stt_cost_estimated
-        ? `${t.stt}: ≈${usdCost.format(stt)} (cennik × długość nagrania)`
-        : `${t.stt}: ${usdCost.format(stt)} (kwota z odpowiedzi dostawcy)`,
+      ? t("costNoPrice", { name: d.stt })
+      : t(d.stt_cost_estimated ? "costEstimated" : "costFromProvider", { name: d.stt, cost: fmt.usdCost.format(stt) }),
   ];
-  if (t.llm) {
+  if (d.llm) {
     detail.push(
       llm !== null
-        ? `${t.llm}: ${usdCost.format(llm)} (kwota z odpowiedzi dostawcy)`
-        : `${t.llm}: ${subscription ? "abonament" : "brak kwoty w odpowiedzi"}`,
+        ? t("costFromProvider", { name: d.llm, cost: fmt.usdCost.format(llm) })
+        : `${d.llm}: ${t(subscription ? "costSubscription" : "costNoAmount")}`,
     );
   }
   const parts = [];
   if (stt !== null || llm !== null) {
-    parts.push((stt !== null && t.stt_cost_estimated ? "≈" : "") + usdCost.format((stt ?? 0) + (llm ?? 0)));
+    parts.push((stt !== null && d.stt_cost_estimated ? "≈" : "") + fmt.usdCost.format((stt ?? 0) + (llm ?? 0)));
   }
-  if (subscription) parts.push("abon.");
-  if (stt === null || (!!t.llm && llm === null && !subscription)) parts.push("?");
+  if (subscription) parts.push(t("costSubShort"));
+  if (stt === null || (!!d.llm && llm === null && !subscription)) parts.push("?");
   // A narrow column wraps before "+", never between "+" and its part.
   return { text: parts.join(" + "), detail: detail.join("\n") };
 }
@@ -1238,30 +1292,30 @@ async function loadTimings(): Promise<void> {
   const body = $<HTMLTableSectionElement>("timings");
   if (rows.length === 0) {
     const tr = el("tr");
-    const td = el("td", "muted", "Brak dyktowań od uruchomienia.");
+    const td = el("td", "muted", t("noDictations"));
     td.colSpan = 10;
     tr.append(td);
     body.replaceChildren(tr);
     return;
   }
   body.replaceChildren(
-    ...rows.map((t) => {
+    ...rows.map((d) => {
       const tr = el("tr");
       for (const v of [
-        t.outcome,
-        modeName(t.mode),
-        t.stt,
-        t.streamed ? "tak" : "nie",
-        ms(t.audio_ms),
-        ms(t.release_to_stt_ms),
-        t.llm ? ms(t.llm_ms) : "–",
-        ms(t.release_to_paste_ms),
-        String(t.chars),
+        d.outcome,
+        modeName(d.mode),
+        d.stt,
+        t(d.streamed ? "yes" : "no"),
+        ms(d.audio_ms),
+        ms(d.release_to_stt_ms),
+        d.llm ? ms(d.llm_ms) : "–",
+        ms(d.release_to_paste_ms),
+        String(d.chars),
       ]) {
         tr.append(el("td", "", v));
       }
-      if (t.llm) tr.children[6].setAttribute("title", t.llm);
-      const cost = costOf(t);
+      if (d.llm) tr.children[6].setAttribute("title", d.llm);
+      const cost = costOf(d);
       const td = el("td", "wrap", cost.text);
       td.title = cost.detail;
       tr.append(td);
@@ -1272,24 +1326,7 @@ async function loadTimings(): Promise<void> {
 
 // ---------- overview: balances and usage ----------
 
-const nf0 = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 });
-const nf1 = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 1 });
-const usd = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol" });
-const day = new Intl.DateTimeFormat("pl-PL", { day: "numeric", month: "short" });
-const clock = new Intl.DateTimeFormat("pl-PL", { hour: "2-digit", minute: "2-digit" });
 const DAY_MS = 86_400_000;
-
-/** Polish plural: forms for 1, for 2–4 (but not 12–14) and for the rest. */
-function plural(n: number, [one, few, many]: [string, string, string]): string {
-  const k = Math.abs(Math.round(n));
-  if (k === 1) return one;
-  return k % 10 >= 2 && k % 10 <= 4 && (k % 100 < 12 || k % 100 > 14) ? few : many;
-}
-
-const DICTATIONS: [string, string, string] = ["dyktowanie", "dyktowania", "dyktowań"];
-const CREDITS: [string, string, string] = ["kredyt", "kredyty", "kredytów"];
-const DAYS: [string, string, string] = ["dzień", "dni", "dni"];
-const REQUESTS: [string, string, string] = ["zapytanie", "zapytania", "zapytań"];
 
 function daysUntil(unix: number): number {
   return Math.max(0, Math.ceil((unix * 1000 - Date.now()) / DAY_MS));
@@ -1323,11 +1360,11 @@ function balanceCard(title: string, tag: string, amount: string, unit: string, r
 
 function missingCard(title: string, tag: string, fetched: { state: "no_key" } | { state: "error"; message: string }): HTMLElement {
   if (fetched.state === "error") {
-    return balanceCard(title, tag, "błąd", "", [["Odpowiedź", el("span", "error", fetched.message)]]);
+    return balanceCard(title, tag, t("error"), "", [[t("response"), el("span", "error", fetched.message)]]);
   }
-  const add = button("Dodaj klucz", "link");
+  const add = button(t("addKey"), "link");
   add.addEventListener("click", () => showPage("keys"));
-  return balanceCard(title, tag, "brak klucza", "", [["Saldo", add]]);
+  return balanceCard(title, tag, t("keyMissing"), "", [[t("balance"), add]]);
 }
 
 function lastDays(rows: UsageRow[], days: number): UsageRow[] {
@@ -1342,21 +1379,24 @@ function elevenLabsCard(b: ElevenLabsBalance, title: string, week?: UsageRow[]):
   const rows: Row[] = [];
   if (b.reset_unix !== null) {
     const left = daysUntil(b.reset_unix);
-    rows.push(["Odnowienie", `${day.format(b.reset_unix * 1000)} (za ${left} ${plural(left, DAYS)})`]);
+    rows.push([t("renewal"), t("renewalValue", { date: fmt.day.format(b.reset_unix * 1000), n: left, days: plural(left, "days") })]);
   }
   rows.push([
-    "Starczy na",
-    `≈ ${nf0.format(b.remaining / b.credits_per_min_realtime)} min na żywo albo ${nf0.format(b.remaining / b.credits_per_min_batch)} min wsadowo`,
+    t("lastsFor"),
+    t("elevenLabsLasts", {
+      live: fmt.nf0.format(b.remaining / b.credits_per_min_realtime),
+      batch: fmt.nf0.format(b.remaining / b.credits_per_min_batch),
+    }),
   ]);
   if (b.per_day !== null) {
     const verdict =
       b.runs_out_unix === null
-        ? el("span", "good", "wystarczy do odnowienia")
-        : el("span", "warn", `skończy się ok. ${day.format(b.runs_out_unix * 1000)}`);
-    const pace = el("span", "", `≈ ${nf0.format(b.per_day)} ${plural(b.per_day, CREDITS)} dziennie, `);
+        ? el("span", "good", t("enoughUntilRenewal"))
+        : el("span", "warn", t("runsOut", { date: fmt.day.format(b.runs_out_unix * 1000) }));
+    const pace = el("span", "", t("pace", { n: fmt.nf0.format(b.per_day), credits: plural(b.per_day, "credits") }));
     const both = el("span");
     both.append(pace, verdict);
-    rows.push(["Tempo konta", both]);
+    rows.push([t("accountPace"), both]);
   }
   if (week) {
     const mine = week.filter((r) => r.stt === "ElevenLabs");
@@ -1364,30 +1404,26 @@ function elevenLabsCard(b: ElevenLabsBalance, title: string, week?: UsageRow[]):
       (sum, r) => sum + (r.audio_ms / 60_000) * (r.streamed ? b.credits_per_min_realtime : b.credits_per_min_batch),
       0,
     );
-    rows.push(["Ten komputer, 7 dni", `≈ ${nf0.format(credits)} ${plural(credits, CREDITS)} (${nf1.format(minutes(mine))} min)`]);
+    rows.push([t("thisComputer7"), `≈ ${fmt.nf0.format(credits)} ${plural(credits, "credits")} (${fmt.nf1.format(minutes(mine))} min)`]);
   }
-  const tier = b.tier ? `plan ${b.tier}` : "mowa → tekst";
-  return balanceCard(title, tier, nf0.format(b.remaining), `z ${nf0.format(b.limit)} kredytów`, rows, b.remaining / b.limit);
+  const tier = b.tier ? t("tierPlan", { tier: b.tier }) : t("speechToText");
+  return balanceCard(title, tier, fmt.nf0.format(b.remaining), t("ofCredits", { limit: fmt.nf0.format(b.limit) }), rows, b.remaining / b.limit);
 }
 
 function openRouterCard(b: OpenRouterBalance): HTMLElement {
   const rows: Row[] = [];
+  const of = (amount: number, total: number) => t("amountOf", { amount: fmt.usd.format(amount), total: fmt.usd.format(total) });
   rows.push([
-    "Konto",
-    b.account_remaining !== null && b.account_total !== null
-      ? `${usd.format(b.account_remaining)} z ${usd.format(b.account_total)}`
-      : "klucz nie odczytuje salda konta",
+    t("account"),
+    b.account_remaining !== null && b.account_total !== null ? of(b.account_remaining, b.account_total) : t("keyNoAccount"),
   ]);
+  rows.push([t("keyLimit"), b.key_limit !== null && b.key_remaining !== null ? of(b.key_remaining, b.key_limit) : t("noLimit")]);
+  rows.push([t("last7"), t("last7Value", { week: fmt.usd.format(b.usage_weekly), today: fmt.usd.format(b.usage_daily) })]);
   rows.push([
-    "Limit klucza",
-    b.key_limit !== null && b.key_remaining !== null ? `${usd.format(b.key_remaining)} z ${usd.format(b.key_limit)}` : "bez limitu",
-  ]);
-  rows.push(["Ostatnie 7 dni", `${usd.format(b.usage_weekly)} (dziś ${usd.format(b.usage_daily)})`]);
-  rows.push([
-    "Starczy na",
+    t("lastsFor"),
     b.days_left !== null
-      ? `≈ ${nf0.format(b.days_left)} ${plural(b.days_left, DAYS)} przy tempie z tygodnia`
-      : "brak wydatków w tym tygodniu",
+      ? t("openRouterLasts", { n: fmt.nf0.format(b.days_left), days: plural(b.days_left, "days") })
+      : t("noSpending"),
   ]);
   // The meter follows whichever amount runs out first.
   const byKey = b.key_remaining !== null && b.key_limit && b.available === Math.max(0, b.key_remaining);
@@ -1396,15 +1432,15 @@ function openRouterCard(b: OpenRouterBalance): HTMLElement {
     : b.account_remaining !== null && b.account_total
       ? b.account_remaining / b.account_total
       : undefined;
-  const amount = b.available === null ? "—" : usd.format(b.available);
-  return balanceCard("OpenRouter", "płatne za tokeny", amount, "do wydania", rows, fill);
+  const amount = b.available === null ? "—" : fmt.usd.format(b.available);
+  return balanceCard("OpenRouter", t("paidPerToken"), amount, t("toSpend"), rows, fill);
 }
 
 function cliProxyCard(week: UsageRow[]): HTMLElement {
   const calls = week.filter((r) => r.llm.startsWith("endpoint:")).length;
-  return balanceCard("CLIProxy", "subskrypcja", "bez salda", "abonament, nie tokeny", [
-    ["Model", settings.llm.model || "—"],
-    ["Ten komputer, 7 dni", `${calls} ${plural(calls, REQUESTS)} post-processingu`],
+  return balanceCard("CLIProxy", t("subscription"), t("noBalance"), t("subscriptionNotTokens"), [
+    [t("model"), settings.llm.model || "—"],
+    [t("thisComputer7"), t("postProcessingRequests", { n: calls, requests: plural(calls, "requests") })],
   ]);
 }
 
@@ -1420,25 +1456,25 @@ function renderBalances(o: Overview): void {
     cards.push(
       o.elevenlabs.state === "ok"
         ? elevenLabsCard(o.elevenlabs.data, "ElevenLabs", week)
-        : missingCard("ElevenLabs", "mowa → tekst", o.elevenlabs),
+        : missingCard("ElevenLabs", t("speechToText"), o.elevenlabs),
     );
     // The backup account gets a card only once its key is stored.
     const backup = o.elevenlabs_backup;
-    const title = "ElevenLabs — zapas";
+    const title = t("backupTitle");
     if (backup.state === "ok") cards.push(elevenLabsCard(backup.data, title));
-    if (backup.state === "error") cards.push(missingCard(title, "mowa → tekst", backup));
-    notes.push("Minuty ElevenLabs liczone po ok. 78,5 kredytu za minutę na żywo i 68 za minutę wsadowo (pomiar z 15.10.2026).");
+    if (backup.state === "error") cards.push(missingCard(title, t("speechToText"), backup));
+    notes.push(t("elevenLabsNote"));
   }
   if (o.openrouter.state !== "unused") {
     cards.push(
-      o.openrouter.state === "ok" ? openRouterCard(o.openrouter.data) : missingCard("OpenRouter", "płatne za tokeny", o.openrouter),
+      o.openrouter.state === "ok" ? openRouterCard(o.openrouter.data) : missingCard("OpenRouter", t("paidPerToken"), o.openrouter),
     );
-    notes.push("„Do wydania” w OpenRouter to mniejsza z kwot: saldo konta albo limit klucza.");
+    notes.push(t("openRouterNote"));
   }
   if (settings.llm.backend === "open_ai_compatible" && postProcesses(settings)) cards.push(cliProxyCard(week));
   const stt = settings.stt.provider;
-  if (stt === "xai" || stt === "openai") notes.push(`${STT_LABELS[stt]} nie podaje salda zwykłym kluczem API.`);
-  if (cards.length === 0) notes.unshift("Wybrani dostawcy nie mają salda do pokazania.");
+  if (stt === "xai" || stt === "openai") notes.push(t("noBalanceApi", { provider: STT_LABELS[stt] }));
+  if (cards.length === 0) notes.unshift(t("noBalances"));
   $<HTMLDivElement>("balances").replaceChildren(...cards);
   $<HTMLElement>("balance-note").textContent = notes.join(" ");
 }
@@ -1461,10 +1497,10 @@ function renderUsage(rows: UsageRow[]): void {
   const paste = median(week.filter((r) => r.outcome === "ok" && r.release_to_paste_ms !== null).map((r) => r.release_to_paste_ms!));
   const failed = week.filter((r) => r.outcome !== "ok").length;
   $<HTMLDivElement>("usage-stats").replaceChildren(
-    stat("7 dni", `${week.length} ${plural(week.length, DICTATIONS)}, ${nf1.format(minutes(week))} min`),
-    stat("30 dni", `${rows.length} ${plural(rows.length, DICTATIONS)}, ${nf1.format(minutes(rows))} min`),
-    stat("Mediana do wklejenia, 7 dni", paste === null ? "—" : `${nf1.format(paste / 1000)} s`),
-    stat("Nieudane, 7 dni", String(failed)),
+    stat(t("days7"), `${week.length} ${plural(week.length, "dictations")}, ${fmt.nf1.format(minutes(week))} min`),
+    stat(t("days30"), `${rows.length} ${plural(rows.length, "dictations")}, ${fmt.nf1.format(minutes(rows))} min`),
+    stat(t("medianPaste"), paste === null ? "—" : `${fmt.nf1.format(paste / 1000)} s`),
+    stat(t("failed7"), String(failed)),
   );
 
   // One bar per local calendar day, oldest first.
@@ -1486,18 +1522,18 @@ function renderUsage(rows: UsageRow[]): void {
     ...buckets.map((b) => {
       const bar = el("i", b.n ? "" : "empty");
       bar.style.height = `${b.n ? Math.max(4, (b.min / max) * 100) : 2}%`;
-      bar.title = `${day.format(b.start)}: ${nf1.format(b.min)} min, ${b.n} ${plural(b.n, DICTATIONS)}`;
+      bar.title = `${fmt.day.format(b.start)}: ${fmt.nf1.format(b.min)} min, ${b.n} ${plural(b.n, "dictations")}`;
       return bar;
     }),
   );
-  chart.setAttribute("aria-label", `Minuty nagrań dziennie przez 30 dni, razem ${nf1.format(minutes(rows))} min`);
-  $<HTMLElement>("chart-from").textContent = day.format(buckets[0].start);
+  chart.setAttribute("aria-label", t("chartAria", { min: fmt.nf1.format(minutes(rows)) }));
+  $<HTMLElement>("chart-from").textContent = fmt.day.format(buckets[0].start);
 }
 
-const HOTKEY_MODES: Record<Settings["hotkey_mode"], string> = {
-  auto: "przytrzymaj albo stuknij dwa razy",
-  hold: "przytrzymaj",
-  toggle: "naciśnij na start i na koniec",
+const HOTKEY_MODES: Record<Settings["hotkey_mode"], Key> = {
+  auto: "hkAuto",
+  hold: "hkHold",
+  toggle: "hkToggle",
 };
 
 function renderTiles(): void {
@@ -1505,20 +1541,20 @@ function renderTiles(): void {
   const text = (id: string, value: string) => ($<HTMLElement>(id).textContent = value);
   text("ov-hotkey", s.hotkey);
   text("side-hotkey", s.hotkey);
-  text("ov-hotkey-sub", HOTKEY_MODES[s.hotkey_mode]);
+  text("ov-hotkey-sub", t(HOTKEY_MODES[s.hotkey_mode]));
   const mode = s.modes.find((m) => m.id === s.active_mode);
   text("ov-mode", modeName(s.active_mode));
-  const kind = mode ? MODE_KINDS.find(([k]) => k === modeKind(mode))![1] : "";
+  const kind = mode ? t(MODE_KINDS.find(([k]) => k === modeKind(mode))![1]) : "";
   const modeSub = mode?.post_process && mode.llm_model ? `${kind}, ${mode.llm_model}` : kind;
   text("ov-mode-sub", modeSub === modeName(s.active_mode) ? "" : modeSub);
   const stt = sttInUse(s.stt);
   text("ov-stt", STT_LABELS[s.stt.provider]);
-  text("ov-stt-sub", `${stt.model}, ${stt.live ? "na żywo" : "wsadowo"}`);
+  text("ov-stt-sub", `${stt.model}, ${t(stt.live ? "live" : "batch")}`);
   const model = { open_ai_compatible: s.llm.model, open_router: s.llm.openrouter_model, claude_cli: s.llm.cli_model, codex_cli: s.llm.cli_model }[
     s.llm.backend
   ];
   text("ov-llm", LLM_LABELS[s.llm.backend]);
-  text("ov-llm-sub", model || "model domyślny");
+  text("ov-llm-sub", model || t("defaultModelShort"));
 }
 
 document.querySelectorAll<HTMLButtonElement>(".tile[data-goto]").forEach((t) => t.addEventListener("click", () => showPage(t.dataset.goto!)));
@@ -1530,13 +1566,13 @@ async function loadOverview(): Promise<void> {
   overviewLoading = true;
   const btn = $<HTMLButtonElement>("ov-refresh");
   btn.disabled = true;
-  status("ov-status", "Pobieranie salda…");
+  status("ov-status", t("loadingBalance"));
   void loadNews();
   try {
     const o = await invoke<Overview>("get_overview");
     renderBalances(o);
     renderUsage(o.usage);
-    status("ov-status", `Stan z ${clock.format(o.fetched_at * 1000)}.`);
+    status("ov-status", t("stateAt", { time: fmt.clock.format(o.fetched_at * 1000) }));
   } catch (e) {
     status("ov-status", errorText(e), true);
   } finally {
@@ -1565,7 +1601,7 @@ function newsCard(
   const head = el("header");
   head.append(el("strong", "", title), el("span", "tag", tag));
   card.append(head);
-  if (error) card.append(el("p", "error", `Nie udało się pobrać listy: ${error}`));
+  if (error) card.append(el("p", "error", t("listFailed", { error })));
   else if (!models.length) card.append(el("p", "muted", empty));
   else {
     const dl = el("dl");
@@ -1576,20 +1612,21 @@ function newsCard(
       dd.append(name);
       const price = priceText(m.price);
       if (price) dd.append(" ", el("span", "muted", price));
-      if (m.newer_than_yours) dd.append(" ", el("span", "badge new", "nowszy niż twój"));
+      if (m.newer_than_yours) dd.append(" ", el("span", "badge new", t("newerThanYours")));
       const r = ranked.get(m.id);
       if (r) {
-        // A test without a score says why: "przerwany: …" or "niedostępny: …".
-        const unscored = r.note.split(":")[0] || "bez oceny";
-        const badge = el("span", "badge", r.score === null ? unscored : `${scoreFmt.format(r.score)} · ${secondsText(r.median_ms)}`);
-        badge.title = r.score === null ? r.note : `Ranking: ocena ${scoreFmt.format(r.score)}/10, mediana ${secondsText(r.median_ms)}`;
+        // A test without a score says why: "przerwany: …" or "niedostępny: …" (ranking.json, Polish only).
+        const unscored = r.note.split(":")[0] || t("unscored");
+        const badge = el("span", "badge", r.score === null ? unscored : `${fmt.score.format(r.score)} · ${secondsText(r.median_ms)}`);
+        badge.title =
+          r.score === null ? r.note : t("rankingBadgeTitle", { score: fmt.score.format(r.score), time: secondsText(r.median_ms) });
         dd.append(" ", badge);
       }
-      dl.append(el("dt", "", m.created ? day.format(m.created * 1000) : "—"), dd);
+      dl.append(el("dt", "", m.created ? fmt.day.format(m.created * 1000) : "—"), dd);
     }
     card.append(dl);
   }
-  const go = button("Zmień model", "link");
+  const go = button(t("changeModel"), "link");
   go.addEventListener("click", () => showPage(page));
   card.append(go);
   return card;
@@ -1603,18 +1640,16 @@ async function loadNews(): Promise<void> {
   try {
     const [n, ranking] = await Promise.all([invoke<ModelNews>("get_model_news"), fetchRanking().catch(() => null)]);
     const ranked = new Map(n.llm_source === "OpenRouter" ? (ranking?.models ?? []).map((m) => [m.model, m]) : []);
-    const since = `z ostatnich ${n.days} ${plural(n.days, DAYS)}`;
-    const cards = [newsCard("Rozpoznawanie mowy", "OpenRouter", n.stt, n.stt_error, `Brak nowych modeli ${since}.`, "stt")];
+    const since = t("sinceDays", { n: n.days, days: plural(n.days, "days") });
+    const none = t("noNewModels", { since });
+    const cards = [newsCard(t("pageStt"), "OpenRouter", n.stt, n.stt_error, none, "stt")];
     cards.push(
       n.llm_source
-        ? newsCard("Post-processing", n.llm_source, n.llm, n.llm_error, `Brak nowych modeli ${since}.`, "llm", ranked)
-        : newsCard("Post-processing", "CLI", [], null, "Backend CLI nie podaje listy modeli.", "llm"),
+        ? newsCard(t("pageLlm"), n.llm_source, n.llm, n.llm_error, none, "llm", ranked)
+        : newsCard(t("pageLlm"), "CLI", [], null, t("cliNoList"), "llm"),
     );
     $("news").replaceChildren(...cards);
-    status(
-      "news-note",
-      `Modele dodane ${since}. Rozpoznawanie mowy: katalog OpenRouter, który obejmuje modele wielu firm. Post-processing: modele czatu z listy wybranego dostawcy, w OpenRouter bez wariantów (:free), aliasów i routerów. „Nowszy niż twój”: nowszy model tej samej firmy co model, którego używasz. Ocena i czas przy modelu OpenRouter pochodzą z rankingu na stronie „Post-processing”.`,
-    );
+    status("news-note", t("newsNote", { since }));
   } catch (e) {
     status("news-note", errorText(e), true);
   } finally {
@@ -1624,9 +1659,6 @@ async function loadNews(): Promise<void> {
 
 // ---------- post-processing: model ranking ----------
 
-const nf2 = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 2 });
-const scoreFmt = new Intl.NumberFormat("pl-PL", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const usd2 = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol", maximumFractionDigits: 2 });
 const RANKING_ROWS = 10;
 let rankingRequest: Promise<RankingView> | null = null;
 let rankingAll = false;
@@ -1646,7 +1678,7 @@ function fetchRanking(force = false): Promise<RankingView> {
 function secondsText(ms: number | null): string {
   if (ms === null) return "–";
   const s = ms / 1000;
-  return `${s < 1 ? nf2.format(s) : nf1.format(s)} s`;
+  return `${s < 1 ? fmt.nf2.format(s) : fmt.nf1.format(s)} s`;
 }
 
 /** The OpenRouter model the form has now (unsaved choices included), without its routing suffix. */
@@ -1668,7 +1700,7 @@ function useRanked(m: RankedModel): void {
   refreshModeModels();
   updateDirty();
   void loadRanking();
-  status("ranking-status", `Wybrano ${m.name} (${m.use_model}, reasoning effort ${m.effort}). Zapisz, żeby dyktowania go używały.`);
+  status("ranking-status", t("rankingPicked", { name: m.name, model: m.use_model, effort: m.effort }));
 }
 
 function rankingRow(m: RankedModel, place: number, yours: string): HTMLTableRowElement {
@@ -1681,36 +1713,36 @@ function rankingRow(m: RankedModel, place: number, yours: string): HTMLTableRowE
   const label = el("span", "", m.name);
   label.title = `${m.use_model}, reasoning effort ${m.effort}`;
   name.append(label);
-  if (mine) name.append(" ", el("span", "badge ok", "twój"));
-  if (!m.available) name.append(" ", el("span", "badge", "wycofany"));
-  if (m.other_prompt) name.append(" ", el("span", "badge missing", "inny prompt"));
+  if (mine) name.append(" ", el("span", "badge ok", t("yours")));
+  if (!m.available) name.append(" ", el("span", "badge", t("withdrawn")));
+  if (m.other_prompt) name.append(" ", el("span", "badge missing", t("otherPrompt")));
   if (m.note) name.append(" ", el("span", "muted", m.note));
 
-  const score = el("td", "", m.score === null ? "–" : scoreFmt.format(m.score));
+  const score = el("td", "", m.score === null ? "–" : fmt.score.format(m.score));
   score.title = [
-    `${m.good} z ${m.cases} dyktowań ocenionych na 9–10, błędów zapytań: ${m.errors}.`,
+    t("scoreTitle", { good: m.good, cases: m.cases, errors: m.errors }),
     ...m.issues.map((i) => `• ${i}`),
   ].join("\n");
 
   const time = el("td", "", secondsText(m.median_ms));
   time.title = [
-    `Mediana od wysłania do pełnej odpowiedzi, zmierzona ${day.format(m.timed_at * 1000)}.`,
-    m.p90_ms !== null ? `90% odpowiedzi w ${secondsText(m.p90_ms)} lub szybciej.` : "",
-    ...m.earlier.map((t) => `Wcześniej ${day.format(t.at * 1000)}: ${secondsText(t.median_ms)}`),
+    t("timeTitle", { date: fmt.day.format(m.timed_at * 1000) }),
+    m.p90_ms !== null ? t("p90", { time: secondsText(m.p90_ms) }) : "",
+    ...m.earlier.map((e) => t("earlier", { date: fmt.day.format(e.at * 1000), time: secondsText(e.median_ms) })),
   ]
     .filter(Boolean)
     .join("\n");
 
-  const cost = el("td", "", m.cost_usd === null ? "–" : usd2.format(m.cost_usd * 1000));
-  cost.title = "Mediana kosztu jednego dyktowania razy 1000, jak policzył OpenRouter.";
+  const cost = el("td", "", m.cost_usd === null ? "–" : fmt.usd2.format(m.cost_usd * 1000));
+  cost.title = t("costTitle");
 
-  const use = button(mine ? "Używasz" : "Użyj");
+  const use = button(t(mine ? "inUse" : "use"));
   use.disabled = mine || !m.available || m.score === null;
   use.addEventListener("click", () => useRanked(m));
   const action = el("td");
   action.append(use);
 
-  tr.append(el("td", "muted", String(place)), name, score, time, cost, el("td", "", day.format(m.tested_at * 1000)), action);
+  tr.append(el("td", "muted", String(place)), name, score, time, cost, el("td", "", fmt.day.format(m.tested_at * 1000)), action);
   return tr;
 }
 
@@ -1723,12 +1755,12 @@ async function loadRanking(force = false): Promise<void> {
     tr.append(td);
     body.replaceChildren(tr);
   };
-  if (!body.children.length) message("Pobieranie rankingu…");
+  if (!body.children.length) message(t("loadingRanking"));
   let r: RankingView;
   try {
     r = await fetchRanking(force);
   } catch (e) {
-    message(`Nie udało się pobrać rankingu: ${errorText(e)}`, "error");
+    message(t("rankingFailed", { error: errorText(e) }), "error");
     $("ranking-more").hidden = true;
     status("ranking-note", "");
     return;
@@ -1738,22 +1770,25 @@ async function loadRanking(force = false): Promise<void> {
   // The model in use stays visible even below the cut.
   const own = r.models.find((m) => m.model === yours);
   if (own && !shown.includes(own)) shown.push(own);
-  if (!shown.length) message("Ranking jest pusty: zadanie rankingu jeszcze nie przetestowało żadnego modelu.");
+  if (!shown.length) message(t("rankingEmpty"));
   else body.replaceChildren(...shown.map((m) => rankingRow(m, r.models.indexOf(m) + 1, yours)));
 
   const more = $<HTMLButtonElement>("ranking-more");
   more.hidden = r.models.length <= RANKING_ROWS;
-  more.textContent = rankingAll ? "Pokaż tylko najlepsze" : `Pokaż wszystkie (${r.models.length})`;
+  more.textContent = rankingAll ? t("showTop") : t("showAll", { n: r.models.length });
 
   const notes = [
-    `Ranking z ${day.format(r.generated_at * 1000)}, ${clock.format(r.generated_at * 1000)}. Każdy model dostaje te same ${r.cases} ${plural(r.cases, DICTATIONS)} (przykłady z korpusu i prawdziwe dyktowania autora) z wbudowanym promptem agenta, przez OpenRouter z dopiskiem :nitro i reasoning effort none (low, gdy model nie pozwala wyłączyć myślenia). Ocenę 0–10 daje ślepy sędzia (${r.judge}); czas to mediana od wysłania do pełnej odpowiedzi. Kolejność: najpierw modele z oceną co najmniej 8, od najmniejszego iloczynu czasu i kosztu (2× szybciej liczy się tyle co 2× taniej), potem reszta według oceny. Nowe modele czatu do ${usdPrice.format(5)} za 1M tokenów odpowiedzi zadanie testuje samo codziennie, najlepszych 5 mierzy ponownie co tydzień. Po najechaniu na ocenę widać uwagi sędziego, na czas — wcześniejsze pomiary.`,
+    t("rankingNote", {
+      date: fmt.day.format(r.generated_at * 1000),
+      time: fmt.clock.format(r.generated_at * 1000),
+      cases: r.cases,
+      dictations: plural(r.cases, "dictations"),
+      judge: r.judge,
+      price: fmt.usdPrice.format(5),
+    }),
   ];
-  if (r.age_days >= 2) {
-    notes.unshift(`Ranking nie był odświeżany od ${r.age_days} ${plural(r.age_days, DAYS)}: zadanie hyperrust-ranking nie działa.`);
-  }
-  if (r.prompt_sha !== r.app_prompt_sha) {
-    notes.push(`Ranking zmierzono z innym promptem agenta (${r.prompt_sha}) niż ma ta wersja aplikacji (${r.app_prompt_sha}); kolejność może się różnić.`);
-  }
+  if (r.age_days >= 2) notes.unshift(t("rankingStale", { n: r.age_days, days: plural(r.age_days, "days") }));
+  if (r.prompt_sha !== r.app_prompt_sha) notes.push(t("rankingOtherPrompt", { theirs: r.prompt_sha, ours: r.app_prompt_sha }));
   status("ranking-note", notes.join(" "), r.age_days >= 2);
 }
 
@@ -1799,16 +1834,17 @@ void listen<string>("navigate", (e) => showPage(e.payload));
 
 // ---------- save / load ----------
 
-const UNSAVED = "Niezapisane zmiany";
+/** Whether the footer says "Unsaved changes" (in whichever language). */
+let showsUnsaved = false;
 
 function updateDirty(): void {
   if (!settings) return;
   const dirty = JSON.stringify(readForm()) !== baseline;
   $<HTMLButtonElement>("save").disabled = !dirty;
   document.querySelector("footer")?.classList.toggle("dirty", dirty);
-  const current = $<HTMLElement>("save-status").textContent;
-  if (dirty) status("save-status", UNSAVED);
-  else if (current === UNSAVED) status("save-status", "");
+  if (dirty) status("save-status", t("unsaved"));
+  else if (showsUnsaved) status("save-status", "");
+  showsUnsaved = dirty;
 }
 
 function markSaved(): void {
@@ -1827,11 +1863,17 @@ $<HTMLButtonElement>("save").addEventListener("click", async () => {
   btn.disabled = true;
   try {
     const before = overviewInputs(settings);
+    const languageBefore = settings.ui_language;
     settings = await invoke<Settings>("save_settings", { settings: readForm() });
     fillForm();
     renderTiles();
     markSaved();
-    status("save-status", "Zapisano.");
+    status("save-status", t("saved"));
+    // A language change starts a fresh update check, worded in the new language.
+    if (settings.ui_language !== languageBefore) {
+      showUpdate((await invoke<Snapshot>("get_snapshot")).update);
+      rereadUpdateSoon();
+    }
     if (currentPage === "history") renderHistory();
     if (overviewInputs(settings) !== before) void loadOverview();
   } catch (e) {
@@ -1845,8 +1887,8 @@ async function load(): Promise<void> {
   settings = snap.settings;
   builtinPrompts = snap.builtin_prompts;
   secrets = snap.secrets;
-  $<HTMLElement>("build").textContent = `wersja ${snap.version}`;
-  $<HTMLElement>("build").title = `Wersja to data i godzina zbudowania (rr.mmdd.ggmm): po aktualizacji jest wyższa. Build ${snap.build.build}`;
+  snapshot = snap;
+  applyLanguage(settings.ui_language);
   $<HTMLElement>("logs-dir").textContent = snap.logs_dir;
   fillForm();
   renderTiles();
@@ -1883,6 +1925,11 @@ void listen<boolean>("autostart-changed", (e) =>
     $("autostart").checked = e.payload;
   }),
 );
+$<HTMLSelectElement>("ui_language").addEventListener("change", (e) => {
+  applyLanguage((e.target as HTMLSelectElement).value as Lang);
+  rerender();
+});
+applyLanguage(rememberedLang());
 showPage(decodeURIComponent(location.hash.slice(1)) || "overview");
 window.setInterval(() => void loadTimings(), 5000);
 load()

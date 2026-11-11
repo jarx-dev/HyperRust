@@ -45,7 +45,7 @@ impl ElevenLabsBalance {
     pub fn from_subscription(v: &Value, now_unix: u64) -> Result<Self> {
         let num = |k: &str| v.get(k).and_then(Value::as_u64);
         let (Some(used), Some(limit)) = (num("character_count"), num("character_limit")) else {
-            return Err(Error::InvalidResponse("brak character_count lub character_limit".into()));
+            return Err(Error::InvalidResponse(crate::tr!("missing character_count or character_limit", "brak character_count lub character_limit")));
         };
         let remaining = limit.saturating_sub(used);
         let reset_unix = num("next_character_count_reset_unix");
@@ -101,7 +101,7 @@ impl OpenRouterBalance {
     pub fn from_responses(key: &Value, credits: Option<&Value>) -> Result<Self> {
         let data = key
             .get("data")
-            .ok_or_else(|| Error::InvalidResponse("brak pola data w /key".into()))?;
+            .ok_or_else(|| Error::InvalidResponse(crate::tr!("missing data field in /key", "brak pola data w /key")))?;
         let f = |v: &Value, k: &str| v.get(k).and_then(Value::as_f64);
         let credits = credits.and_then(|c| c.get("data"));
         let account_total = credits.and_then(|c| f(c, "total_credits"));
@@ -167,9 +167,10 @@ const LOW: &str = "⚠ ";
 pub fn elevenlabs_line(b: &ElevenLabsBalance, credits_per_min: f64, now_unix: u64) -> String {
     let percent = (b.remaining * 100).checked_div(b.limit).unwrap_or(0);
     let minutes = (b.remaining as f64 / credits_per_min) as u64;
-    let mut line = format!("ElevenLabs: {percent}%, ≈{}", speech_pl(minutes));
+    let mut line = format!("ElevenLabs: {percent}%, ≈{}", speech(minutes));
     if let Some(left) = b.reset_unix.and_then(|reset| reset.checked_sub(now_unix)).filter(|&left| left > 0) {
-        line.push_str(&format!(", odnowienie za {}", wait_pl(left)));
+        let wait = wait(left);
+        line.push_str(&crate::tr!(", renews in {wait}", ", odnowienie za {wait}"));
     }
     let low = b.remaining * 10 < b.limit || b.runs_out_unix.is_some();
     if low {
@@ -185,7 +186,7 @@ pub fn elevenlabs_pair_line(main: &ElevenLabsBalance, backup: &ElevenLabsBalance
     let percent = |b: &ElevenLabsBalance| (b.remaining * 100).checked_div(b.limit).unwrap_or(0);
     let remaining = main.remaining + backup.remaining;
     let minutes = (remaining as f64 / credits_per_min) as u64;
-    let mut line = format!("ElevenLabs: {}% + {}%, ≈{}", percent(main), percent(backup), speech_pl(minutes));
+    let mut line = format!("ElevenLabs: {}% + {}%, ≈{}", percent(main), percent(backup), speech(minutes));
     if remaining * 10 < main.limit + backup.limit {
         line.insert_str(0, LOW);
     }
@@ -196,14 +197,15 @@ pub fn elevenlabs_pair_line(main: &ElevenLabsBalance, backup: &ElevenLabsBalance
 /// last week's pace. Marked under 1 $ or a week.
 pub fn openrouter_line(b: &OpenRouterBalance) -> String {
     let Some(available) = b.available else {
-        return format!("OpenRouter: wydano {} $ w 7 dni", dollars(b.usage_weekly));
+        let spent = dollars(b.usage_weekly);
+        return crate::tr!("OpenRouter: {spent} spent in 7 days", "OpenRouter: wydano {spent} w 7 dni");
     };
-    let mut line = format!("OpenRouter: {} $", dollars(available));
+    let mut line = format!("OpenRouter: {}", dollars(available));
     if let Some(days) = b.days_left.filter(|&d| d < 1000.0) {
         line.push_str(&match days as u64 {
-            0 => " (<1 dzień)".to_string(),
-            1 => " (≈1 dzień)".to_string(),
-            n => format!(" (≈{n} dni)"),
+            0 => crate::tr!(" (<1 day)", " (<1 dzień)"),
+            1 => crate::tr!(" (≈1 day)", " (≈1 dzień)"),
+            n => crate::tr!(" (≈{n} days)", " (≈{n} dni)"),
         });
     }
     if available < 1.0 || b.days_left.is_some_and(|d| d < 7.0) {
@@ -233,7 +235,7 @@ pub fn fit_tooltip(required: &[String], optional: &[String], max: usize) -> Stri
     text
 }
 
-fn speech_pl(minutes: u64) -> String {
+fn speech(minutes: u64) -> String {
     match (minutes / 60, minutes % 60) {
         (0, m) => format!("{m} min"),
         (h, 0) => format!("{h} h"),
@@ -242,16 +244,22 @@ fn speech_pl(minutes: u64) -> String {
     }
 }
 
-fn wait_pl(seconds: u64) -> String {
+/// Polish "dni" for 2+ days is the same word for every count.
+fn wait(seconds: u64) -> String {
     match seconds / 86_400 {
         0 => format!("{} h", seconds.div_ceil(3_600)),
-        1 => "1 dzień".to_string(),
-        days => format!("{days} dni"),
+        1 => crate::tr!("1 day", "1 dzień"),
+        days => crate::tr!("{days} days", "{days} dni"),
     }
 }
 
+/// "0,70 $" in Polish, "$0.70" in English, like the settings window.
 fn dollars(amount: f64) -> String {
-    format!("{amount:.2}").replace('.', ",")
+    if crate::i18n::is_polish() {
+        format!("{amount:.2} $").replace('.', ",")
+    } else {
+        format!("${amount:.2}")
+    }
 }
 
 /// One dictation of the latency log, as much as the usage overview needs.
@@ -343,6 +351,7 @@ mod tests {
 
     #[test]
     fn tooltip_lines_show_what_is_left_and_warn_when_low() {
+        crate::i18n::set(crate::i18n::UiLanguage::Pl);
         let reset = NOW + 18 * 86_400 + 600;
         let v = json!({"character_count": 3600, "character_limit": 10000, "next_character_count_reset_unix": reset,
                        "character_refresh_period": "monthly_period"});
@@ -371,6 +380,15 @@ mod tests {
         assert_eq!(openrouter_line(&b), "⚠ OpenRouter: 0,50 $ (≈5 dni)");
         let b = OpenRouterBalance::from_responses(&key, None).unwrap();
         assert_eq!(openrouter_line(&b), "OpenRouter: wydano 0,70 $ w 7 dni");
+
+        crate::i18n::set(crate::i18n::UiLanguage::En);
+        assert_eq!(openrouter_line(&b), "OpenRouter: $0.70 spent in 7 days");
+        let credits = json!({"data": {"total_credits": 10.0, "total_usage": 6.79}});
+        let b = OpenRouterBalance::from_responses(&key, Some(&credits)).unwrap();
+        assert_eq!(openrouter_line(&b), "OpenRouter: $3.21 (≈32 days)");
+        let v = json!({"character_count": 3600, "character_limit": 10000, "next_character_count_reset_unix": reset});
+        let b = ElevenLabsBalance::from_subscription(&v, NOW).unwrap();
+        assert_eq!(elevenlabs_line(&b, 80.0, NOW), "ElevenLabs: 64%, ≈1 h 20 min, renews in 18 days");
     }
 
     #[test]

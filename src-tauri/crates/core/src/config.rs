@@ -4,7 +4,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::dictionary::DictionaryEntry;
-use crate::modes::{default_modes, Mode, AGENT_MODE_ID};
+pub use crate::i18n::UiLanguage;
+use crate::modes::{default_mode_name, default_modes, Mode, AGENT_MODE_ID};
 use crate::stt::SttProviderKind;
 
 /// OpenAI-compatible endpoint a new installation post-processes with, baked in
@@ -330,6 +331,10 @@ impl HistorySettings {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    /// A settings file without it predates the setting and keeps the Polish UI;
+    /// only a new installation starts in English (`Settings::default`).
+    #[serde(default = "UiLanguage::legacy")]
+    pub ui_language: UiLanguage,
     pub hotkey: String,
     pub hotkey_mode: HotkeyMode,
     pub active_mode: String,
@@ -348,10 +353,11 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            ui_language: UiLanguage::En,
             hotkey: "Ctrl+Shift+Space".into(),
             hotkey_mode: HotkeyMode::Auto,
             active_mode: AGENT_MODE_ID.into(),
-            modes: default_modes(),
+            modes: default_modes(UiLanguage::En),
             stt: SttSettings::default(),
             llm: LlmSettings::default(),
             audio: AudioSettings::default(),
@@ -368,9 +374,15 @@ impl Settings {
     /// Parse persisted JSON; unknown or missing fields fall back to defaults and
     /// the result is normalized, so a damaged file never blocks start-up.
     pub fn from_json(json: &str) -> Self {
-        serde_json::from_str::<Settings>(json)
-            .unwrap_or_default()
-            .normalized()
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else {
+            return Settings::default().normalized();
+        };
+        let mut s = Settings::deserialize(&v).unwrap_or_default();
+        // A file without modes gets the built-in ones named in its UI language.
+        if v.get("modes").is_none() {
+            s.modes = default_modes(s.ui_language);
+        }
+        s.normalized()
     }
 
     pub fn to_json(&self) -> String {
@@ -382,7 +394,7 @@ impl Settings {
         let mut seen = std::collections::HashSet::new();
         self.modes.retain(|m| !m.id.trim().is_empty() && seen.insert(m.id.clone()));
         if self.modes.is_empty() {
-            self.modes = default_modes();
+            self.modes = default_modes(self.ui_language);
         }
         // Make the preset implied by older settings explicit.
         for m in &mut self.modes {
@@ -397,6 +409,21 @@ impl Settings {
         self.updates.interval_s = self.updates.interval_s.clamp(15, 86_400);
         self.stt.dictionary = crate::dictionary::normalized(std::mem::take(&mut self.stt.dictionary));
         self
+    }
+
+    /// The UI language changed from `previous`: built-in modes still named as
+    /// installed in `previous` get their name in the new language; renamed ones keep theirs.
+    pub fn rename_builtin_modes(&mut self, previous: UiLanguage) {
+        if previous == self.ui_language {
+            return;
+        }
+        for m in &mut self.modes {
+            if let (Some(old), Some(new)) = (default_mode_name(&m.id, previous), default_mode_name(&m.id, self.ui_language)) {
+                if m.name == old {
+                    m.name = new.into();
+                }
+            }
+        }
     }
 
     pub fn active_mode(&self) -> &Mode {
@@ -484,6 +511,7 @@ mod tests {
 
     #[test]
     fn garbage_json_yields_defaults() {
+        // A damaged file starts over like a new installation, in English.
         assert_eq!(Settings::from_json("{not json"), Settings::default());
     }
 
@@ -502,7 +530,43 @@ mod tests {
         assert_eq!(fast.normalized().updates.interval_s, 15);
 
         let empty = Settings { modes: vec![], ..Settings::default() }.normalized();
-        assert_eq!(empty.modes, default_modes());
+        assert_eq!(empty.modes, default_modes(UiLanguage::En));
+    }
+
+    #[test]
+    fn settings_from_before_the_language_setting_keep_polish() {
+        // A file saved by an older version: no `ui_language`, Polish mode names.
+        let old = Settings { modes: default_modes(UiLanguage::Pl), ..Settings::default() };
+        let mut json: serde_json::Value = serde_json::from_str(&old.to_json()).unwrap();
+        json.as_object_mut().unwrap().remove("ui_language");
+        let s = Settings::from_json(&json.to_string());
+        assert_eq!(s.ui_language, UiLanguage::Pl);
+        assert_eq!(s.modes, default_modes(UiLanguage::Pl));
+        // Even a file without modes gets them named in Polish.
+        assert_eq!(Settings::from_json(r#"{"hotkey":"F9"}"#).modes, default_modes(UiLanguage::Pl));
+        // A new installation starts in English.
+        assert_eq!(Settings::default().ui_language, UiLanguage::En);
+        assert_eq!(Settings::default().modes[0].name, "Agent prompt");
+    }
+
+    #[test]
+    fn built_in_mode_names_follow_only_a_language_change() {
+        let mut s = Settings::default();
+        s.modes[1].name = "Mine".into();
+        s.ui_language = UiLanguage::Pl;
+        s.rename_builtin_modes(UiLanguage::En);
+        assert_eq!(s.modes[0].name, "Prompt dla agenta");
+        assert_eq!(s.modes[1].name, "Mine");
+        s.ui_language = UiLanguage::En;
+        s.rename_builtin_modes(UiLanguage::Pl);
+        assert_eq!(s.modes[0].name, "Agent prompt");
+
+        // A Polish UI user who named the mode in English keeps that name on load and on save.
+        let mut s = Settings { ui_language: UiLanguage::Pl, modes: default_modes(UiLanguage::En), ..Settings::default() };
+        s = Settings::from_json(&s.to_json());
+        assert_eq!(s.modes[0].name, "Agent prompt");
+        s.rename_builtin_modes(UiLanguage::Pl);
+        assert_eq!(s.modes[0].name, "Agent prompt");
     }
 
     #[test]

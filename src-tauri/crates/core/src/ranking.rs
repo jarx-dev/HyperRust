@@ -305,16 +305,16 @@ pub const GITHUB_URL: &str = "https://github.com/jarx-dev/HyperRust/releases/dow
 /// `ranking.json` next to the update manifest at `update_url`; for GitHub
 /// Releases the public copy ([`GITHUB_URL`]).
 pub fn url(update_url: &str) -> Result<Url> {
-    let manifest = crate::update::validate_private_url(update_url, "aktualizacji")?;
+    let manifest = crate::update::validate_private_url(update_url, &crate::tr!("update", "aktualizacji"))?;
     let joined = if manifest.host_str() == Some("github.com") {
         GITHUB_URL.to_string()
     } else {
         manifest
             .join(FILE_NAME)
-            .map_err(|e| Error::Other(format!("adres rankingu: {e}")))?
+            .map_err(|e| Error::Other(crate::tr!("ranking address: {e}", "adres rankingu: {e}")))?
             .to_string()
     };
-    crate::update::validate_private_url(&joined, "rankingu")
+    crate::update::validate_private_url(&joined, &crate::tr!("ranking", "rankingu"))
 }
 
 pub fn parse(body: &[u8]) -> Result<Ranking> {

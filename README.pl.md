@@ -33,7 +33,7 @@
 > into the active window. Audio streams to the speech-to-text service while you speak (ElevenLabs
 > Scribe, xAI, OpenAI or OpenRouter), so only ~0.25 s is left after you let go. Modes decide what
 > happens to the text, a dictionary fixes names the model gets wrong, and the app tracks your
-> provider balances. Single portable EXE, keys in the Windows Credential Manager, Polish UI.
+> provider balances. Single portable EXE, keys in the Windows Credential Manager, English or Polish UI.
 
 ---
 
@@ -86,7 +86,7 @@ hook klawiatury (WH_KEYBOARD_LL) → mikrofon (WASAPI, 16 kHz mono, 300 ms sprze
 <p align="center"><img src="docs/screenshots/history.png" alt="Strona Historia: dyktowania pogrupowane po dniach z transkrypcją i wynikiem"></p>
 
 **Wygląd**
-- Jasny i ciemny motyw według ustawień Windows, cały interfejs po polsku.
+- Jasny i ciemny motyw według ustawień Windows, interfejs po angielsku albo po polsku (Ogólne → Language / Język; nowa instalacja startuje po angielsku, a ustawienia sprzed tej zmiany zostają po polsku).
 
 <p align="center"><img src="docs/screenshots/dark.png" alt="Okno ustawień w ciemnym motywie"></p>
 

@@ -40,10 +40,12 @@ pub fn run() {
         return;
     }
     let after_update = updater::finish_pending_update(&args);
-    tracing::info!("HyperRust {} (build {}){}", state::version_label(), BUILD.build, if after_update { ", po aktualizacji" } else { "" });
+    let local = if state::is_local_build() { " lokalna" } else { "" };
+    tracing::info!("HyperRust {}{local} (build {}){}", state::short_version(), BUILD.build, if after_update { ", po aktualizacji" } else { "" });
 
     let first_run = !paths::settings_file().exists();
     let settings = store::load();
+    hyperrust_core::i18n::set(settings.ui_language);
     let http = hyperrust_core::http::build_client().expect("klient HTTP");
     let (ctl_tx, ctl_rx) = mpsc::unbounded_channel();
     let recorder = Recorder::spawn(settings.audio.clone(), ctl_tx.clone());

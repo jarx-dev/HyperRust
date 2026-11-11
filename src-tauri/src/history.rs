@@ -57,7 +57,7 @@ pub fn local() -> Result<Vec<serde_json::Value>, String> {
             Ok(entries)
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
-        Err(e) => Err(format!("odczyt historii: {e}")),
+        Err(e) => Err(hyperrust_core::tr!("reading the history: {e}", "odczyt historii: {e}")),
     }
 }
 

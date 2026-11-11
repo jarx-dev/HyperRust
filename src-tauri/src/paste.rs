@@ -90,9 +90,9 @@ mod platform {
     }
 
     fn set_text(text: &str) -> Result<u32, String> {
-        let _clip = Clipboard::new_attempts(10).map_err(|e| format!("schowek zajęty: {e}"))?;
+        let _clip = Clipboard::new_attempts(10).map_err(|e| hyperrust_core::tr!("clipboard busy: {e}", "schowek zajęty: {e}"))?;
         raw::empty().map_err(|e| e.to_string())?;
-        raw::set_string_with(text, NoClear).map_err(|e| format!("zapis do schowka: {e}"))?;
+        raw::set_string_with(text, NoClear).map_err(|e| hyperrust_core::tr!("writing to the clipboard: {e}", "zapis do schowka: {e}"))?;
         // Keep dictations out of Win+V history, cloud clipboard and clipboard managers.
         if let Some(f) = register_format("ExcludeClipboardContentFromMonitorProcessing") {
             let _ = raw::set_without_clear(f.get(), &[0]);
@@ -173,7 +173,7 @@ mod platform {
         let deadline = Instant::now() + Duration::from_millis(800);
         while modifiers_held() {
             if Instant::now() >= deadline {
-                return Err("puść klawisze Ctrl/Shift/Alt/Win — tekst jest w schowku".into());
+                return Err(hyperrust_core::tr!("release Ctrl/Shift/Alt/Win — the text is in the clipboard", "puść klawisze Ctrl/Shift/Alt/Win — tekst jest w schowku"));
             }
             std::thread::sleep(Duration::from_millis(5));
         }
@@ -205,6 +205,6 @@ mod platform {
     }
 
     pub fn deliver(_text: &str, _settings: &PasteSettings, _target: Option<Target>) -> Result<Option<PendingRestore>, String> {
-        Err("wklejanie jest dostępne tylko w Windows".into())
+        Err(hyperrust_core::tr!("pasting is available only on Windows", "wklejanie jest dostępne tylko w Windows"))
     }
 }

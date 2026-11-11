@@ -75,21 +75,36 @@ pub struct HotkeySpec {
     pub trigger: Trigger,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HotkeyParseError {
-    #[error("pusty skrót")]
     Empty,
-    #[error("nieznany klawisz: {0}")]
     UnknownKey(String),
-    #[error("skrót może mieć tylko jeden klawisz główny")]
     TwoKeys,
-    #[error("sam modyfikator bez strony (np. Ctrl) jest niebezpieczny; użyj np. RightCtrl")]
     BareModifier,
-    #[error("klawisz modyfikatora (np. RightCtrl) musi być użyty sam")]
     ModifierWithModifiers,
-    #[error("Escape jest zarezerwowany do anulowania nagrania")]
     Escape,
 }
+
+impl std::fmt::Display for HotkeyParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use crate::tr;
+        f.write_str(&match self {
+            Self::Empty => tr!("empty shortcut", "pusty skrót"),
+            Self::UnknownKey(key) => tr!("unknown key: {key}", "nieznany klawisz: {key}"),
+            Self::TwoKeys => tr!("a shortcut can have only one main key", "skrót może mieć tylko jeden klawisz główny"),
+            Self::BareModifier => tr!(
+                "a modifier without a side (e.g. Ctrl) is unsafe; use e.g. RightCtrl",
+                "sam modyfikator bez strony (np. Ctrl) jest niebezpieczny; użyj np. RightCtrl"
+            ),
+            Self::ModifierWithModifiers => {
+                tr!("a modifier key (e.g. RightCtrl) must be used alone", "klawisz modyfikatora (np. RightCtrl) musi być użyty sam")
+            }
+            Self::Escape => tr!("Escape is reserved for cancelling a recording", "Escape jest zarezerwowany do anulowania nagrania"),
+        })
+    }
+}
+
+impl std::error::Error for HotkeyParseError {}
 
 const SIDED_MODIFIERS: [(&str, u32); 8] = [
     ("rightctrl", vk::RCONTROL),

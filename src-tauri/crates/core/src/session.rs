@@ -212,7 +212,7 @@ pub async fn post_process(
         LlmBackend::OpenAiCompatible | LlmBackend::OpenRouter => {
             let (base, model) = llm_settings.http_target().expect("http backend");
             if base.is_empty() || model.is_empty() {
-                return Err(Error::Other("ustaw adres i model endpointu post-processingu".into()));
+                return Err(Error::Other(crate::tr!("set the post-processing endpoint address and model", "ustaw adres i model endpointu post-processingu")));
             }
             if llm_settings.backend == LlmBackend::OpenRouter && api_key.is_none_or(|k| k.trim().is_empty()) {
                 return Err(Error::MissingKey("OpenRouter"));

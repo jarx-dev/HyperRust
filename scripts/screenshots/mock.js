@@ -4,7 +4,12 @@
 // shortcut: SETTINGS is a copy of Settings::default() from when it was written;
 // regenerate it when the defaults change visibly.
 (() => {
+  // UI language of the pictures: scripts/screenshots.sh sets it for UI=en.
+  const LANG = window.MOCK_LANG === "en" ? "en" : "pl";
+  const EN = LANG === "en";
+  const AGENT = EN ? "Agent prompt" : "Prompt dla agenta";
   const SETTINGS = {
+    "ui_language": LANG,
     "active_mode": "prompt",
     "audio": {
       "cues": true,
@@ -34,7 +39,7 @@
       {
         "id": "prompt",
         "llm_model": "",
-        "name": "Prompt dla agenta",
+        "name": AGENT,
         "post_process": true,
         "preset": "agent",
         "prompt": ""
@@ -42,7 +47,7 @@
       {
         "id": "raw",
         "llm_model": "",
-        "name": "Surowa transkrypcja",
+        "name": EN ? "Raw transcript" : "Surowa transkrypcja",
         "post_process": false,
         "preset": "cleanup",
         "prompt": ""
@@ -129,7 +134,7 @@
         }
       ],
       "final_timeout_ms": 10000,
-      "language": "pl",
+      "language": EN ? "en" : "pl",
       "models": {
         "elevenlabs": "scribe_v2",
         "elevenlabs_realtime": "scribe_v2_realtime",
@@ -153,7 +158,20 @@
   const day = 86_400_000;
   const sec = (ms) => Math.round(ms / 1000);
 
-  const DICTATIONS = [
+  const DICTATIONS = EN ? [
+    ["Fix the build script in package JSON so it, um, runs the linter first and then the tests.",
+     "Fix the `build` script in `package.json` so it runs the linter first and then the tests.", 6200, 610],
+    ["Add a field for the API key to the settings that shows dots, oh and a show button, save it to the keyring, not to a file.",
+     "Add an API key field to the settings that shows dots, plus a “Show” button. Save it to the keyring, not to a file.", 9400, 720],
+    ["When I run cargo test, the parse manifest test panics with unwrap on none. Find the cause, don't just patch the test.",
+     "When I run `cargo test`, the `parse_manifest` test panics with `unwrap on None`. Find the cause, don't just patch the test.", 8100, 680],
+    ["Should I use tokio mpsc or cross beam channel here? Explain the differences first.",
+     "Should I use `tokio::mpsc` or `crossbeam-channel` here? Explain the differences first.", 4300, 540],
+    ["The recording indicator shows up on the wrong monitor, it should be where the active window is.",
+     "The recording indicator shows up on the wrong monitor, it should be where the active window is.", 5200, 0],
+    ["Make a commit, no, wait, first run clippy with minus D warnings.",
+     "First run `clippy` with `-D warnings`, then make a commit.", 3900, 590],
+  ] : [
     ["Popraw w package JSON skrypt build, żeby, yyy, najpierw uruchamiał linter, a potem testy.",
      "Popraw w `package.json` skrypt `build`, żeby najpierw uruchamiał linter, a potem testy.", 6200, 610],
     ["Dodaj do ustawień pole na klucz API, które pokazuje kropki, no i przycisk pokaż, zapis do keyringa, nie do pliku.",
@@ -194,13 +212,14 @@
       builtin_prompts: PROMPTS,
       build: { version: "0.1.0", build: "demo-1762851600", built_at: 1762851600 },
       version: "v26.1111.0900",
+      local_build: false,
       secrets: { eleven_labs: true, eleven_labs_backup: false, xai: false, open_ai: false, open_router: true, llm_endpoint: false },
       logs_dir: "C:\\Users\\Demo\\AppData\\Local\\HyperRust\\logs",
-      update: { state: "aktualna", message: "Masz najnowszą wersję", latest_build: "demo-1762851600", checked_at: sec(now - 2 * min) },
+      update: { state: "aktualna", message: EN ? "Up to date (demo-1762851600)" : "Najnowsza wersja (demo-1762851600)", latest_build: "demo-1762851600", checked_at: sec(now - 2 * min) },
     }),
     get_overview: () => ({
       elevenlabs: { state: "ok", data: {
-        tier: "creator", used: 38_400, limit: 100_000, remaining: 61_600, reset_unix: sec(now + 18 * day),
+        tier: "creator", used: 38_400, limit: 100_000, remaining: 61_600, reset_unix: sec(now + 18 * day - 60 * min), // off the whole-day boundary, so every shot says 18
         credits_per_min_realtime: 78.5, credits_per_min_batch: 68, per_day: 2100, runs_out_unix: null } },
       elevenlabs_backup: { state: "no_key" },
       openrouter: { state: "ok", data: {
@@ -238,7 +257,7 @@
       batch: [{ id: "scribe_v2", name: "Scribe v2", owner: "elevenlabs", created: null, price: { unit: "hour", usd: 0.22 } }],
       realtime: [{ id: "scribe_v2_realtime", name: "Scribe v2 Realtime", owner: "elevenlabs", created: null, price: { unit: "hour", usd: 0.39 } }],
     }),
-    list_input_devices: () => ["Mikrofon (Realtek Audio)", "Zestaw słuchawkowy (USB Audio)"],
+    list_input_devices: () => EN ? ["Microphone (Realtek Audio)", "Headset (USB Audio)"] : ["Mikrofon (Realtek Audio)", "Zestaw słuchawkowy (USB Audio)"],
     check_updates: () => replies.get_snapshot().update,
   };
 
@@ -269,7 +288,7 @@
   };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} };
 
-  const OVERLAY = { state: "recording", mode: "Prompt dla agenta", switchable: true };
+  const OVERLAY = { state: "recording", mode: AGENT, lang: LANG, switchable: true };
   if (location.pathname.endsWith("overlay.html")) {
     let t = 0;
     setInterval(() => emit("overlay-level", 0.35 + 0.3 * Math.sin(t++ / 1.7) * Math.cos(t / 3.1)), 60);

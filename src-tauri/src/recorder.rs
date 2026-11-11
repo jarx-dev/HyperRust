@@ -71,8 +71,8 @@ impl Recorder {
     /// Begin delivering audio (pre-roll first) to `sink`.
     pub async fn start(&self, sink: mpsc::UnboundedSender<Vec<i16>>) -> Result<(), String> {
         let (tx, rx) = oneshot::channel();
-        self.cmd.send(Cmd::Start(sink, tx)).map_err(|_| "wątek audio nie działa".to_string())?;
-        rx.await.map_err(|_| "wątek audio nie odpowiada".to_string())?
+        self.cmd.send(Cmd::Start(sink, tx)).map_err(|_| hyperrust_core::tr!("the audio thread is not running", "wątek audio nie działa"))?;
+        rx.await.map_err(|_| hyperrust_core::tr!("the audio thread does not respond", "wątek audio nie odpowiada"))?
     }
 
     /// Stop delivering audio; dropping the sink ends the dictation's stream.
@@ -228,7 +228,7 @@ mod backend {
             }
             tracing::warn!("nie znaleziono mikrofonu „{name}”, używam domyślnego");
         }
-        host.default_input_device().ok_or_else(|| "brak mikrofonu".to_string())
+        host.default_input_device().ok_or_else(|| hyperrust_core::tr!("no microphone", "brak mikrofonu"))
     }
 
     pub fn open(device_name: &str, shared: &Arc<Shared>, cmd: &std_mpsc::Sender<Cmd>) -> Result<Stream, String> {
@@ -244,7 +244,7 @@ mod backend {
             cpal::SampleFormat::I16 => build::<i16>(&device, config, channels, shared, cmd),
             cpal::SampleFormat::I32 => build::<i32>(&device, config, channels, shared, cmd),
             cpal::SampleFormat::U16 => build::<u16>(&device, config, channels, shared, cmd),
-            other => return Err(format!("nieobsługiwany format próbek: {other:?}")),
+            other => return Err(hyperrust_core::tr!("unsupported sample format: {other:?}", "nieobsługiwany format próbek: {other:?}")),
         }?;
         stream.play().map_err(|e| e.to_string())?;
         Ok(stream)
@@ -310,6 +310,6 @@ mod backend {
     }
 
     pub fn open(_device: &str, _shared: &Arc<Shared>, _cmd: &std_mpsc::Sender<Cmd>) -> Result<Stream, String> {
-        Err("nagrywanie jest obsługiwane tylko w Windows".into())
+        Err(hyperrust_core::tr!("recording is supported only on Windows", "nagrywanie jest obsługiwane tylko w Windows"))
     }
 }
