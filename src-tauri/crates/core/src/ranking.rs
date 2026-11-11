@@ -300,7 +300,7 @@ pub fn plan(catalog: &[CatalogModel], log: &[Measurement], prompt_sha: &str, for
 
 /// Public copy of the ranking (judge remarks removed: they quote private
 /// dictations), uploaded by `scripts/ranking-nuc.sh` after each run.
-pub const GITHUB_URL: &str = "https://github.com/jarx-dev/HyperRusts/releases/download/ranking/ranking.json";
+pub const GITHUB_URL: &str = "https://github.com/jarx-dev/HyperRust/releases/download/ranking/ranking.json";
 
 /// `ranking.json` next to the update manifest at `update_url`; for GitHub
 /// Releases the public copy ([`GITHUB_URL`]).

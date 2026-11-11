@@ -14,7 +14,7 @@
 #   HYPERRUST_RANKING_BWS_PROJECT  BWS project holding the OpenRouter key
 #   CLIPROXY_BASE_URL              the judge's OpenAI-compatible endpoint
 #   CLIPROXY_CONFIG                CLIProxy's config.yaml (default ~/cliproxyapi/config.yaml)
-#   HYPERRUST_RANKING_REPO         GitHub repository of the public copy (default jarx-dev/HyperRusts)
+#   HYPERRUST_RANKING_REPO         GitHub repository of the public copy (default jarx-dev/HyperRust)
 # Env: HYPERRUST_RANKING_DIR (default ~/hyperrust-ranking),
 #      HYPERRUST_UPDATE_DIR (default ~/hyperrust-updates).
 set -euo pipefail
@@ -50,4 +50,4 @@ export OPENROUTER_API_KEY CLIPROXY_API_KEY
 public=$(mktemp -d)
 trap 'rm -rf "$public"' EXIT
 jq '.models[].issues = []' "$publish" > "$public/ranking.json"
-gh release upload ranking "$public/ranking.json" --clobber -R "${HYPERRUST_RANKING_REPO:-jarx-dev/HyperRusts}"
+gh release upload ranking "$public/ranking.json" --clobber -R "${HYPERRUST_RANKING_REPO:-jarx-dev/HyperRust}"
