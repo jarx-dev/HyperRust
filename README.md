@@ -95,7 +95,7 @@ domyślnych ustawień: [docs/szczegoly.md](docs/szczegoly.md).
 
 ## Pobierz
 
-Gotowy plik EXE jest w [wydaniach](https://github.com/jarx-dev/HyperRusts/releases/latest). Pobierz go
+Gotowy plik EXE jest w [wydaniach](https://github.com/jarx-dev/HyperRust/releases/latest). Pobierz go
 do zapisywalnego folderu, np. `%LOCALAPPDATA%\HyperRust\`, i uruchom, bez instalacji (Windows 10
 lub 11, WebView2 jest w systemie). Kolejne wydania program pobiera sam, gdy nic nie dyktujesz.
 Plik nie jest podpisany, więc za pierwszym razem Windows może ostrzec przed nieznanym wydawcą:
