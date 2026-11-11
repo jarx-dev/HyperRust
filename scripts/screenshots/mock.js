@@ -4,8 +4,12 @@
 // shortcut: SETTINGS is a copy of Settings::default() from when it was written;
 // regenerate it when the defaults change visibly.
 (() => {
+  // UI language of the pictures: scripts/screenshots.sh sets it for UI=en.
+  const LANG = window.MOCK_LANG === "en" ? "en" : "pl";
+  const EN = LANG === "en";
+  const AGENT = EN ? "Agent prompt" : "Prompt dla agenta";
   const SETTINGS = {
-    "ui_language": "pl",
+    "ui_language": LANG,
     "active_mode": "prompt",
     "audio": {
       "cues": true,
@@ -35,7 +39,7 @@
       {
         "id": "prompt",
         "llm_model": "",
-        "name": "Prompt dla agenta",
+        "name": AGENT,
         "post_process": true,
         "preset": "agent",
         "prompt": ""
@@ -43,7 +47,7 @@
       {
         "id": "raw",
         "llm_model": "",
-        "name": "Surowa transkrypcja",
+        "name": EN ? "Raw transcript" : "Surowa transkrypcja",
         "post_process": false,
         "preset": "cleanup",
         "prompt": ""
@@ -198,7 +202,7 @@
       local_build: false,
       secrets: { eleven_labs: true, eleven_labs_backup: false, xai: false, open_ai: false, open_router: true, llm_endpoint: false },
       logs_dir: "C:\\Users\\Demo\\AppData\\Local\\HyperRust\\logs",
-      update: { state: "aktualna", message: "Masz najnowszą wersję", latest_build: "demo-1762851600", checked_at: sec(now - 2 * min) },
+      update: { state: "aktualna", message: EN ? "Up to date (demo-1762851600)" : "Masz najnowszą wersję", latest_build: "demo-1762851600", checked_at: sec(now - 2 * min) },
     }),
     get_overview: () => ({
       elevenlabs: { state: "ok", data: {
@@ -271,7 +275,7 @@
   };
   window.__TAURI_EVENT_PLUGIN_INTERNALS__ = { unregisterListener() {} };
 
-  const OVERLAY = { state: "recording", mode: "Prompt dla agenta", lang: "pl", switchable: true };
+  const OVERLAY = { state: "recording", mode: AGENT, lang: LANG, switchable: true };
   if (location.pathname.endsWith("overlay.html")) {
     let t = 0;
     setInterval(() => emit("overlay-level", 0.35 + 0.3 * Math.sin(t++ / 1.7) * Math.cos(t / 3.1)), 60);

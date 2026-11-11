@@ -24,11 +24,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/overview.png" alt="Settings window, Overview page: hotkey, mode, providers, account balances and recent dictations">
+  <img src="docs/screenshots/en/overview.png" alt="Settings window, Overview page: hotkey, mode, providers, account balances and recent dictations">
   <br><sub>All screenshots show demo data (made-up dictations and balances).</sub>
 </p>
 
-> The interface is in English or Polish: new installations start in English, and „Ogólne” (General) → Language / Język switches it. The screenshots and the labels quoted below are from the Polish interface, with the English label in parentheses on first use.
+> The interface is in English or Polish: new installations start in English, and „Ogólne” (General) → Language / Język switches it. The screenshots show the English interface; the labels quoted below are the Polish ones, with the English label in parentheses on first use.
 
 ---
 
@@ -57,7 +57,7 @@ keyboard hook (WH_KEYBOARD_LL) → microphone (WASAPI, 16 kHz mono, 300 ms from 
   transcript is pasted. A second ElevenLabs account takes over dictation when the first one runs
   out of credits.
 
-<p align="center"><img src="docs/screenshots/overlay.png" width="420" alt="Recording indicator with a sound wave and the mode name"></p>
+<p align="center"><img src="docs/screenshots/en/overlay.png" width="420" alt="Recording indicator with a sound wave and the mode name"></p>
 
 **Modes and post-processing**
 - „Bez AI” (No AI) pastes the transcript as is, „Porządkowanie tekstu” (Text cleanup) fixes
@@ -73,7 +73,7 @@ keyboard hook (WH_KEYBOARD_LL) → microphone (WASAPI, 16 kHz mono, 300 ms from 
   same Polish dictations, a blind judge scores the output, and the table shows score, time and
   cost. You pick a model from the ranking with one click.
 
-<p align="center"><img src="docs/screenshots/modes.png" alt="Modes page: active mode, mode type, model and prompt"></p>
+<p align="center"><img src="docs/screenshots/en/modes.png" alt="Modes page: active mode, mode type, model and prompt"></p>
 
 **Overview and history**
 - ElevenLabs and OpenRouter balances with a forecast of how long they will last, also in the
@@ -82,12 +82,12 @@ keyboard hook (WH_KEYBOARD_LL) → microphone (WASAPI, 16 kHz mono, 300 ms from 
   cost of each dictation.
 - Dictation history with search: the raw transcript next to the pasted text.
 
-<p align="center"><img src="docs/screenshots/history.png" alt="History page: dictations grouped by day with the transcript and the result"></p>
+<p align="center"><img src="docs/screenshots/en/history.png" alt="History page: dictations grouped by day with the transcript and the result"></p>
 
 **Appearance**
 - Light and dark theme following the Windows setting; the interface in English or Polish.
 
-<p align="center"><img src="docs/screenshots/dark.png" alt="Settings window in the dark theme"></p>
+<p align="center"><img src="docs/screenshots/en/dark.png" alt="Settings window in the dark theme"></p>
 
 ## Speed
 
@@ -181,7 +181,7 @@ You can find the same in the app: the „Ogólne” (General) page → „O prog
 
 If you find HyperRust useful, you can [buy me a coffee](https://buymeacoffee.com/jarx) ☕
 
-<img src="docs/screenshots/about.png" width="640" alt="General page with the About section: author, repository link and the Buy me a coffee button">
+<img src="docs/screenshots/en/about.png" width="640" alt="General page with the About section: author, repository link and the Buy me a coffee button">
 
 ## License
 
