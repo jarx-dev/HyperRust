@@ -20,7 +20,7 @@ use url::{Host, Url};
 use crate::error::{Error, Result};
 
 /// Where public releases are published; GitHub publishes no model ranking.
-pub const GITHUB_UPDATE_URL: &str = "https://github.com/jarx-dev/HyperRusts/releases/latest/download/latest.json";
+pub const GITHUB_UPDATE_URL: &str = "https://github.com/jarx-dev/HyperRust/releases/latest/download/latest.json";
 /// The manifest a new installation polls: a private update server baked in at
 /// build time, otherwise GitHub Releases.
 pub const DEFAULT_UPDATE_URL: &str = match option_env!("HYPERRUST_DEFAULT_UPDATE_URL") {

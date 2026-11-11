@@ -319,7 +319,7 @@ pub fn open_logs_dir() -> Result<(), String> {
 #[tauri::command]
 pub fn open_link(link: &str) -> Result<(), String> {
     let url = match link {
-        "repo" => "https://github.com/jarx-dev/HyperRusts",
+        "repo" => "https://github.com/jarx-dev/HyperRust",
         "coffee" => "https://buymeacoffee.com/jarx",
         _ => return Err(format!("nieznany link „{link}”")),
     };
