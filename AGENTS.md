@@ -20,7 +20,7 @@ Push-to-talk dictation for Windows: a global hotkey records, streams to a speech
 - Only builds made with `HYPERRUST_BUILD` set (release workflow, `publish-dev.sh`) update themselves (`HYPERRUST_SELF_UPDATE` from `build.rs`), so a local test build is never replaced under test.
 - The updater takes plain HTTP only from Tailscale and loopback addresses and follows redirects only HTTPS→HTTPS. Don't loosen either: GitHub's `releases/latest/download` redirects twice, and an HTTP hop would let the manifest and its SHA-256 be swapped together.
 - Nothing slow runs on the dictation path (history upload, balances, catalogs wait for a quiet moment). A change that adds time between key release and paste must say how much, measured before and after (`timings.jsonl`).
-- `ranking.json` sits next to a private server's `latest.json`; with GitHub Releases there is no ranking and the UI hides it (`ranking::url` returns `None`).
+- `ranking.json` sits next to a private server's `latest.json`; builds updating from GitHub read the public copy (`ranking::GITHUB_URL`, asset of the pre-release `ranking`, uploaded by `scripts/ranking-nuc.sh`). NEVER publish the judge's `issues` there: they quote dictations and part of the set is the owner's private history. Keep `ranking` a pre-release, or `releases/latest` (the updater's manifest URL) would point at it.
 
 ## Key files
 

@@ -209,7 +209,7 @@ interface RankedModel {
   note: string;
 }
 
-/** `ranking.json` from the private update server, with what this build adds. */
+/** `ranking.json` from the update server or GitHub, with what this build adds. */
 interface RankingView {
   generated_at: number;
   prompt_sha: string;
@@ -1628,14 +1628,13 @@ const nf2 = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 2 });
 const scoreFmt = new Intl.NumberFormat("pl-PL", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const usd2 = new Intl.NumberFormat("pl-PL", { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol", maximumFractionDigits: 2 });
 const RANKING_ROWS = 10;
-/** `null`: this build has no ranking (updates come from GitHub Releases). */
-let rankingRequest: Promise<RankingView | null> | null = null;
+let rankingRequest: Promise<RankingView> | null = null;
 let rankingAll = false;
 
 /** The ranking once per window; again after a failure or on `force`. */
-function fetchRanking(force = false): Promise<RankingView | null> {
+function fetchRanking(force = false): Promise<RankingView> {
   if (force || !rankingRequest) {
-    const request = invoke<RankingView | null>("get_model_ranking");
+    const request = invoke<RankingView>("get_model_ranking");
     rankingRequest = request;
     request.catch(() => {
       if (rankingRequest === request) rankingRequest = null;
@@ -1725,7 +1724,7 @@ async function loadRanking(force = false): Promise<void> {
     body.replaceChildren(tr);
   };
   if (!body.children.length) message("Pobieranie rankingu…");
-  let r: RankingView | null;
+  let r: RankingView;
   try {
     r = await fetchRanking(force);
   } catch (e) {
@@ -1734,8 +1733,6 @@ async function loadRanking(force = false): Promise<void> {
     status("ranking-note", "");
     return;
   }
-  $("ranking-title").hidden = $("ranking-card").hidden = r === null;
-  if (r === null) return;
   const yours = formOpenRouterModel();
   const shown = rankingAll ? r.models : r.models.slice(0, RANKING_ROWS);
   // The model in use stays visible even below the cut.
@@ -1749,7 +1746,7 @@ async function loadRanking(force = false): Promise<void> {
   more.textContent = rankingAll ? "Pokaż tylko najlepsze" : `Pokaż wszystkie (${r.models.length})`;
 
   const notes = [
-    `Ranking z ${day.format(r.generated_at * 1000)}, ${clock.format(r.generated_at * 1000)}. Każdy model dostaje te same ${r.cases} ${plural(r.cases, DICTATIONS)} (przykłady z korpusu i Twoje) z wbudowanym promptem agenta, przez OpenRouter z dopiskiem :nitro i reasoning effort none (low, gdy model nie pozwala wyłączyć myślenia). Ocenę 0–10 daje ślepy sędzia (${r.judge}); czas to mediana od wysłania do pełnej odpowiedzi. Kolejność: najpierw modele z oceną co najmniej 8, od najmniejszego iloczynu czasu i kosztu (2× szybciej liczy się tyle co 2× taniej), potem reszta według oceny. Nowe modele czatu do ${usdPrice.format(5)} za 1M tokenów odpowiedzi zadanie testuje samo codziennie, najlepszych 5 mierzy ponownie co tydzień. Po najechaniu na ocenę widać uwagi sędziego, na czas — wcześniejsze pomiary.`,
+    `Ranking z ${day.format(r.generated_at * 1000)}, ${clock.format(r.generated_at * 1000)}. Każdy model dostaje te same ${r.cases} ${plural(r.cases, DICTATIONS)} (przykłady z korpusu i prawdziwe dyktowania autora) z wbudowanym promptem agenta, przez OpenRouter z dopiskiem :nitro i reasoning effort none (low, gdy model nie pozwala wyłączyć myślenia). Ocenę 0–10 daje ślepy sędzia (${r.judge}); czas to mediana od wysłania do pełnej odpowiedzi. Kolejność: najpierw modele z oceną co najmniej 8, od najmniejszego iloczynu czasu i kosztu (2× szybciej liczy się tyle co 2× taniej), potem reszta według oceny. Nowe modele czatu do ${usdPrice.format(5)} za 1M tokenów odpowiedzi zadanie testuje samo codziennie, najlepszych 5 mierzy ponownie co tydzień. Po najechaniu na ocenę widać uwagi sędziego, na czas — wcześniejsze pomiary.`,
   ];
   if (r.age_days >= 2) {
     notes.unshift(`Ranking nie był odświeżany od ${r.age_days} ${plural(r.age_days, DAYS)}: zadanie hyperrust-ranking nie działa.`);

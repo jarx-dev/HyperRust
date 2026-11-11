@@ -3,7 +3,8 @@
 //! OpenRouter chat models on a fixed set of dictations with the app's request,
 //! a blind judge scores the results, every test is appended to a log and the
 //! ranking derived from that log is published as `ranking.json` next to the
-//! update manifest. The app only downloads and shows it.
+//! update manifest, and without the judge's remarks on GitHub ([`GITHUB_URL`]).
+//! The app only downloads and shows it.
 //!
 //! What gets tested is decided here ([`plan`]): a new model gets one full test
 //! (outputs scored by the judge), a second one when the first came in its busy
@@ -297,17 +298,23 @@ pub fn plan(catalog: &[CatalogModel], log: &[Measurement], prompt_sha: &str, for
     Plan { full, retime }
 }
 
-/// `ranking.json` next to the update manifest at `update_url`; `None` for
-/// GitHub Releases, which publish no ranking.
-pub fn url(update_url: &str) -> Result<Option<Url>> {
+/// Public copy of the ranking (judge remarks removed: they quote private
+/// dictations), uploaded by `scripts/ranking-nuc.sh` after each run.
+pub const GITHUB_URL: &str = "https://github.com/jarx-dev/HyperRusts/releases/download/ranking/ranking.json";
+
+/// `ranking.json` next to the update manifest at `update_url`; for GitHub
+/// Releases the public copy ([`GITHUB_URL`]).
+pub fn url(update_url: &str) -> Result<Url> {
     let manifest = crate::update::validate_private_url(update_url, "aktualizacji")?;
-    if manifest.host_str() == Some("github.com") {
-        return Ok(None);
-    }
-    let joined = manifest
-        .join(FILE_NAME)
-        .map_err(|e| Error::Other(format!("adres rankingu: {e}")))?;
-    crate::update::validate_private_url(joined.as_str(), "rankingu").map(Some)
+    let joined = if manifest.host_str() == Some("github.com") {
+        GITHUB_URL.to_string()
+    } else {
+        manifest
+            .join(FILE_NAME)
+            .map_err(|e| Error::Other(format!("adres rankingu: {e}")))?
+            .to_string()
+    };
+    crate::update::validate_private_url(&joined, "rankingu")
 }
 
 pub fn parse(body: &[u8]) -> Result<Ranking> {
@@ -474,10 +481,10 @@ mod tests {
 
     #[test]
     fn url_sits_next_to_the_manifest() {
-        let u = url("http://100.101.102.103:8790/latest.json").unwrap().unwrap();
+        let u = url("http://100.101.102.103:8790/latest.json").unwrap();
         assert_eq!(u.as_str(), "http://100.101.102.103:8790/ranking.json");
         assert!(url("http://example.com/latest.json").is_err());
-        assert_eq!(url(crate::update::GITHUB_UPDATE_URL).unwrap(), None);
+        assert_eq!(url(crate::update::GITHUB_UPDATE_URL).unwrap().as_str(), GITHUB_URL);
     }
 
     #[test]
