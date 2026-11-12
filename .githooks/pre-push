@@ -5,6 +5,35 @@ set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
 cd "$root"
 
+# Same *.md w korzeniu, docs/ albo LICENSE we wszystkich wypychanych gałęziach: nic do
+# sprawdzania, jak w CI (.github/workflows/build.yml). Czego nie da się ocenić (nic nowego,
+# niepobrana gałąź) uruchamia kontrole.
+docs_only() {
+  local any=0 lref lsha rref rsha files main s
+  [[ -t 0 ]] && return 1 # uruchomiony ręcznie: brak gałęzi do przeczytania
+  while read -r lref lsha rref rsha; do
+    [[ $lsha =~ ^0+$ ]] && continue # usunięta gałąź
+    # nowa gałąź liczy się od miejsca, w którym odeszła od main w obecnym stanie zdalnym:
+    # nieaktualne origin/main mogłoby ukryć zmianę kodu, którą ta gałąź cofa
+    if [[ $rsha =~ ^0+$ ]]; then
+      main=$(git ls-remote "$1" refs/heads/main 2>/dev/null | cut -f1)
+      [[ -n $main ]] && rsha=$(git merge-base "$lsha" "$main" 2>/dev/null) || return 1
+    fi
+    files=$(git diff --no-renames --name-only "$rsha" "$lsha" 2>/dev/null) || return 1
+    [[ -n $files ]] || return 1
+    # tylko 1: każda ścieżka to dokument (2 to błąd grepa)
+    s=0
+    grep -qvE '^[^/]+\.md$|^docs/|^LICENSE' <<<"$files" || s=$?
+    ((s == 1)) || return 1
+    any=1
+  done
+  ((any))
+}
+if docs_only "$1"; then
+  echo "[pre-push] same dokumenty: bez kontroli"
+  exit 0
+fi
+
 if [[ -f package.json ]]; then
   echo "[pre-push] typecheck frontendu"
   pnpm exec tsc --noEmit
