@@ -14,6 +14,7 @@ Push-to-talk dictation for Windows: a global hotkey records, streams to a speech
 - Never publish a private build without `HYPERRUST_DEFAULT_UPDATE_URL`: its copies would look for updates on GitHub instead of the private server. `scripts/publish-dev.sh` refuses; don't work around it.
 - Never put a dictated text into the app log (`hyperrust.log`); it goes only to `history.jsonl`.
 - Never store a key outside the Windows Credential Manager (`keyring`, service `HyperRust`).
+- Never open a PR on one review of your own. Before `gh pr create`, the whole diff gets two independent reviews (the `dual-review` skill where it exists), every confirmed finding is fixed or answered, and the PR body names the reviewers and the verdict; a second reviewer catches what the first one misses.
 
 ## Invariants
 
