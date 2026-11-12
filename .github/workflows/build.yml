@@ -11,9 +11,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Only *.md, docs/ or LICENSE changed: both jobs below are skipped, and branch protection counts
+  # a skipped job as passed (with no workflow run at all the required checks would wait for good).
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # what cannot be told (a new branch, a forced push, a manual run) counts as code
+          if files=$(git diff --name-only "$BASE" "$GITHUB_SHA") && [ -n "$files" ] && ! grep -qvE '\.md$|^docs/|^LICENSE' <<<"$files"; then
+            echo code=false >> "$GITHUB_OUTPUT"
+          else
+            echo code=true >> "$GITHUB_OUTPUT"
+          fi
+
   # Quality gates on Linux (no GUI bundle; the Windows-only audio/paste code
   # is linted by the Windows job's build).
   checks:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -57,6 +80,8 @@ jobs:
 
   # Portable single-file .exe (no installer). WebView2 ships with Windows 10/11.
   windows-portable:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
