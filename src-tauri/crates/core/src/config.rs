@@ -348,6 +348,8 @@ pub struct Settings {
     /// Periodically touch the configured endpoints so connections stay warm.
     pub keep_connections_warm: bool,
     pub autostart: bool,
+    /// Send an anonymous report after a crash (`crash_report.rs` in the app).
+    pub crash_reports: bool,
 }
 
 impl Default for Settings {
@@ -366,6 +368,7 @@ impl Default for Settings {
             history: HistorySettings::default(),
             keep_connections_warm: true,
             autostart: false,
+            crash_reports: true,
         }
     }
 }
@@ -507,6 +510,8 @@ mod tests {
         assert_eq!(s.stt.language, "pl");
         assert_eq!(s.llm, LlmSettings::default());
         assert_eq!(s.active_mode().id, AGENT_MODE_ID);
+        // Settings saved before the option keep crash reports on.
+        assert!(s.crash_reports);
     }
 
     #[test]

@@ -66,6 +66,7 @@ interface Settings {
   history: { enabled: boolean; upload_url: string };
   keep_connections_warm: boolean;
   autostart: boolean;
+  crash_reports: boolean;
 }
 
 interface UpdateStatus {
@@ -441,6 +442,7 @@ function fillForm(): void {
   bindValue("hist_upload_url", s.history.upload_url);
   bindCheck("autostart", s.autostart);
   bindCheck("keep_connections_warm", s.keep_connections_warm);
+  bindCheck("crash_reports", s.crash_reports);
   showProviderFields();
   renderModelPick();
   renderSttPicks();
@@ -482,6 +484,7 @@ function readForm(): Settings {
   s.history.upload_url = $("hist_upload_url").value.trim();
   s.autostart = $("autostart").checked;
   s.keep_connections_warm = $("keep_connections_warm").checked;
+  s.crash_reports = $("crash_reports").checked;
   return s;
 }
 

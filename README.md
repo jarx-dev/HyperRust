@@ -125,10 +125,50 @@ First run:
 - Keys are stored only in the Windows Credential Manager (service `HyperRust`), never in the
   settings file. Each key goes only to its own provider.
 - The recording goes to the speech-recognition provider you chose, and the transcript goes to the
-  post-processing backend you chose. Nothing else leaves your computer: dictation history stays in
-  `%LOCALAPPDATA%\HyperRust\logs\history.jsonl`, and the application log contains no dictated text.
+  post-processing backend you chose. Dictation history stays in
+  `%LOCALAPPDATA%\HyperRust\logs\history.jsonl`; only when history is on and you fill in "History
+  server" are the newest entries also sent to that address. The application log contains no dictated
+  text. After a crash the app also sends the report described below.
 - Settings: `%APPDATA%\HyperRust\settings.json`. You can turn history off on the "General"
   page.
+
+## Crash reports
+
+When HyperRust crashes (a Rust panic), it sends one anonymous report about it. This is on by
+default; turn it off with "Send crash reports" on the "General" page. The change applies once the
+settings are saved.
+
+The report holds only the app version (the build id the updater compares), the Windows version and
+the place in HyperRust's source code where it crashed (`file:line`). It goes after the first panic
+in a run, at most once per run. This is the whole report (three
+lines of a Sentry envelope):
+
+```json
+{"event_id":"5f0c9a2e7b1d4e3f8a6b0c1d2e3f4a5b"}
+{"type":"event"}
+{"event_id":"5f0c9a2e7b1d4e3f8a6b0c1d2e3f4a5b","level":"fatal","platform":"native","release":"hyperrust@3f74580-1763800000","environment":"production","contexts":{"os":{"name":"Windows","version":"10.0.26100"}},"exception":{"values":[{"type":"panic","value":"src/controller.rs:123","mechanism":{"type":"panic","handled":false}}]},"fingerprint":["src/controller.rs:123"]}
+```
+
+The request also carries the headers `User-Agent` and `X-Sentry-Auth` with the app's name and
+version and the project's public key; nothing more.
+
+It never contains:
+
+- the panic message (it can quote a dictation, a file name or a key);
+- names or paths of your files, the computer name, your user name, e-mail addresses, dictated text,
+  settings, keys, logs or environment variables;
+- an installation or user id, breadcrumbs or session data.
+
+For code from libraries, the path keeps only `<crate>/src/...` (e.g.
+`tokio-1.48.0/src/runtime/park.rs`), for the standard library `core/src/...`, and for any other
+absolute path only the file name, so no directory of the machine that built the EXE is sent.
+
+The report goes to a Rustrak server (open source, Sentry-compatible) at `errors.jarx.pl`, run by
+the author. It is not passed to third-party services; the traffic goes through Cloudflare, like any
+site behind it. The report has no IP address in it, but the server, like any web server, sees the
+connection's IP address in its access log. Only release builds send reports, with a 3-second limit,
+and any error is ignored. The code is in
+[`src-tauri/src/crash_report.rs`](src-tauri/src/crash_report.rs).
 
 ## Building
 
