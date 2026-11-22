@@ -26,6 +26,7 @@
     "hotkey": "Ctrl+Shift+Space",
     "hotkey_mode": "auto",
     "keep_connections_warm": true,
+    "crash_reports": true,
     "llm": {
       "backend": "open_router",
       "base_url": "",

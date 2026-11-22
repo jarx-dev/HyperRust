@@ -125,9 +125,47 @@ Pierwsze uruchomienie:
 - Klucze są wyłącznie w Menedżerze poświadczeń Windows (usługa `HyperRust`), nigdy w pliku
   ustawień. Każdy klucz trafia tylko do swojego dostawcy.
 - Nagranie idzie do wybranego dostawcy rozpoznawania mowy, a transkrypcja do wybranego wykonawcy
-  post-processingu. Nic więcej nie wychodzi z komputera: historia dyktowań zostaje w
-  `%LOCALAPPDATA%\HyperRust\logs\history.jsonl`, a dziennik aplikacji nie zawiera dyktowanego tekstu.
+  post-processingu. Historia dyktowań zostaje w `%LOCALAPPDATA%\HyperRust\logs\history.jsonl`;
+  tylko gdy historia jest włączona i wypełnisz pole „Serwer historii”, najnowsze wpisy idą też na ten
+  adres. Dziennik aplikacji nie zawiera dyktowanego tekstu. Po awarii aplikacja wysyła też raport
+  opisany niżej.
 - Ustawienia: `%APPDATA%\HyperRust\settings.json`. Historię wyłączysz na stronie „Ogólne”.
+
+## Raporty o awariach
+
+Gdy HyperRust się wywróci (panika w Rust), wysyła jeden anonimowy raport. Domyślnie jest to
+włączone; wyłączysz przełącznikiem „Wysyłaj raporty o awariach” na stronie „Ogólne”. Zmiana działa
+po zapisaniu ustawień.
+
+Raport zawiera tylko wersję aplikacji (identyfikator kompilacji, który porównuje aktualizator),
+wersję Windows i miejsce w kodzie źródłowym HyperRust, w którym się wywrócił (`plik:linia`). Idzie po
+pierwszej panice w danym uruchomieniu, najwyżej raz na uruchomienie. To cały raport (trzy linie koperty Sentry):
+
+```json
+{"event_id":"5f0c9a2e7b1d4e3f8a6b0c1d2e3f4a5b"}
+{"type":"event"}
+{"event_id":"5f0c9a2e7b1d4e3f8a6b0c1d2e3f4a5b","level":"fatal","platform":"native","release":"hyperrust@3f74580-1763800000","environment":"production","contexts":{"os":{"name":"Windows","version":"10.0.26100"}},"exception":{"values":[{"type":"panic","value":"src/controller.rs:123","mechanism":{"type":"panic","handled":false}}]},"fingerprint":["src/controller.rs:123"]}
+```
+
+Żądanie ma też nagłówki `User-Agent` i `X-Sentry-Auth` z nazwą i wersją aplikacji oraz publicznym
+kluczem projektu; nic więcej.
+
+Nigdy nie zawiera:
+
+- treści komunikatu paniki (może cytować dyktowany tekst, nazwę pliku albo klucz);
+- nazw ani ścieżek Twoich plików, nazwy komputera, nazwy użytkownika, adresów e-mail, dyktowanego
+  tekstu, ustawień, kluczy, logów ani zmiennych środowiska;
+- identyfikatora instalacji ani użytkownika, breadcrumbs ani danych sesji.
+
+Dla kodu bibliotek ścieżka zostaje skrócona do `<crate>/src/...` (np.
+`tokio-1.48.0/src/runtime/park.rs`), dla biblioteki standardowej do `core/src/...`, a każda inna
+ścieżka bezwzględna do samej nazwy pliku, więc nie trafia żaden katalog maszyny, która zbudowała EXE.
+
+Raport trafia na serwer Rustrak (open source, zgodny z Sentry) pod `errors.jarx.pl`, utrzymywany
+przez autora. Nie jest przekazywany firmom trzecim; ruch przechodzi przez Cloudflare, jak w każdej
+stronie za Cloudflare. Raport nie zawiera adresu IP, ale serwer, jak każdy serwer WWW, widzi IP
+połączenia w logu dostępu. Raporty wysyłają tylko kompilacje release, z limitem 3 sekund, a błędy
+są pomijane. Kod jest w [`src-tauri/src/crash_report.rs`](src-tauri/src/crash_report.rs).
 
 ## Budowanie
 

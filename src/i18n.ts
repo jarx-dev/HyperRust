@@ -117,6 +117,8 @@ const en = {
   saveHistoryHint: "The last 300 dictations on this computer, shown on the History page.",
   keepConnections: "Keep provider connections open",
   keepConnectionsHint: "A faster first reply after a break.",
+  crashReports: "Send crash reports",
+  crashReportsHint: "Anonymous: app version, Windows version and the place in the code where the app crashed. No file names or content.",
   logs: "Logs",
   openFolder: "Open folder",
   hAbout: "About",
@@ -414,6 +416,9 @@ const pl: Record<Key, string> = {
   saveHistoryHint: "Ostatnie 300 dyktowań na tym komputerze, widoczne na stronie Historia.",
   keepConnections: "Utrzymuj połączenia z dostawcami",
   keepConnectionsHint: "Szybsza pierwsza odpowiedź po przerwie.",
+  crashReports: "Wysyłaj raporty o awariach",
+  crashReportsHint:
+    "Anonimowo: wersja aplikacji, wersja Windows i miejsce w kodzie, w którym aplikacja się wywróciła. Bez nazw plików i treści.",
   logs: "Logi",
   openFolder: "Otwórz folder",
   hAbout: "O programie",

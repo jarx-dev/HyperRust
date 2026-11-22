@@ -9,6 +9,7 @@ mod autostart;
 mod balances;
 mod commands;
 mod controller;
+mod crash_report;
 mod history;
 mod hotkey;
 mod logging;
@@ -36,6 +37,7 @@ use crate::updater::UpdateHandle;
 pub fn run() {
     let args: Vec<String> = std::env::args().collect();
     logging::init();
+    crash_report::install();
     if updater::run_guard(&args) {
         return;
     }
@@ -46,6 +48,7 @@ pub fn run() {
     let first_run = !paths::settings_file().exists();
     let settings = store::load();
     hyperrust_core::i18n::set(settings.ui_language);
+    crash_report::set_enabled(settings.crash_reports);
     let http = hyperrust_core::http::build_client().expect("klient HTTP");
     let (ctl_tx, ctl_rx) = mpsc::unbounded_channel();
     let recorder = Recorder::spawn(settings.audio.clone(), ctl_tx.clone());

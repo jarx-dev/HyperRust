@@ -76,6 +76,7 @@ pub fn save_settings(app: AppHandle, state: State<'_, AppState>, settings: Setti
     settings.rename_builtin_modes(state.settings().ui_language);
     store::save(&settings)?;
     hyperrust_core::i18n::set(settings.ui_language);
+    crate::crash_report::set_enabled(settings.crash_reports);
     let previous = std::mem::replace(&mut *state.settings.write().expect("settings lock"), settings.clone());
 
     // Ticking the box also re-enables an entry switched off in Task Manager.
